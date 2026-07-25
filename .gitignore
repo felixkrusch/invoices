@@ -58,3 +58,7 @@ public/uploads/
 *.png
 *.webp
 uploads/
+
+# Brand assets (override *.png ignore)
+!public/favicon*.png
+!public/apple-touch-icon*.png
