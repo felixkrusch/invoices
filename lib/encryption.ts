@@ -10,19 +10,19 @@ const KEY_LENGTH = 32
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY
   if (!key) {
-    if (process.env.NODE_ENV === 'production') throw new Error('ENCRYPTION_KEY is required in production')
-    logger.warn('ENCRYPTION_KEY not set - using insecure fallback')
-    const secret = process.env.AUTH_SECRET || 'development-secret-fallback'
-    const buf = Buffer.from(secret.slice(0, KEY_LENGTH))
-    if (buf.length < KEY_LENGTH) {
-      const padded = Buffer.alloc(KEY_LENGTH, 0)
-      buf.copy(padded)
-      return padded
+    // Build-time / missing key: never throw at import time. Runtime is guarded by
+    // docker-entrypoint and validateProductionEnvironment.
+    if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
+      logger.warn('ENCRYPTION_KEY not set in production')
+    } else if (process.env.NODE_ENV !== 'production') {
+      logger.warn('ENCRYPTION_KEY not set - using insecure fallback')
     }
-    return buf
+    const secret = process.env.AUTH_SECRET || 'development-secret-fallback-build'
+    const hash = createHash('sha256').update(secret).digest()
+    return hash
   }
 
-  if (key.length < KEY_LENGTH * 2) {
+  if (!/^[0-9a-fA-F]{64}$/.test(key)) {
     throw new Error('ENCRYPTION_KEY must be 64 hex characters (32 bytes)')
   }
 

@@ -168,8 +168,17 @@ const allProviders = [
   ...(!isProd ? [devProvider] : []),
 ]
 
-if (isProd && !process.env.AUTH_SECRET) {
-  throw new Error('AUTH_SECRET is required in production')
+// During `next build`, NODE_ENV=production but secrets are often unset (Docker
+// multi-stage). Do not throw at module load — entrypoint + instrumentation
+// enforce AUTH_SECRET before the server accepts traffic.
+function resolveAuthSecret(): string {
+  if (process.env.AUTH_SECRET && process.env.AUTH_SECRET.length >= 32) {
+    return process.env.AUTH_SECRET
+  }
+  if (!isProd) return 'development-secret-not-for-production-use'
+  // Build-time placeholder only; runtime without a real secret is rejected by
+  // docker-entrypoint.sh and validateProductionEnvironment().
+  return 'build-time-placeholder-secret-do-not-use-at-runtime!!'
 }
 
 const adapter: Adapter = {
@@ -334,7 +343,7 @@ const authConfig = NextAuth({
   adapter,
   session: { strategy: 'jwt', maxAge: sessionMaxAge },
   providers: allProviders,
-  secret: process.env.AUTH_SECRET || (!isProd ? 'development-secret' : undefined),
+  secret: resolveAuthSecret(),
   useSecureCookies: isProd,
   cookies: {
     sessionToken: {
