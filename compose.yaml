@@ -1,0 +1,100 @@
+services:
+  app:
+    image: ${APP_IMAGE:-invoices:latest}
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/invoices
+      - APP_VERSION=${APP_VERSION:-dev}
+      - APP_IMAGE=${APP_IMAGE:-invoices:latest}
+      - COMPOSE_FILE=/app/invoices/compose.yaml
+      - UPDATE_SERVICE=app
+      # Delegate Docker operations to the isolated updater sidecar (docs §6).
+      # When set, the app never mounts the Docker socket and cannot self-modify.
+      - UPDATER_URL=${UPDATER_URL:-http://updater:4000}
+      - UPDATER_TOKEN=${UPDATER_TOKEN:?UPDATER_TOKEN is required}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backups:/app/invoices/backups
+      - ./logs:/app/invoices/logs
+      - ./uploads:/app/invoices/public/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      updater:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    image: ${APP_IMAGE:-invoices:latest}
+    restart: unless-stopped
+    command: ["worker"]
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/invoices
+      - JOB_RUNNER_URL=http://app:3000
+    depends_on:
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+  # Isolated updater sidecar. It — not the app — holds the Docker socket and
+  # performs pull / migrate / recreate / health-gate / rollback. The app only
+  # triggers it over HTTP with UPDATER_TOKEN (docs/Self-Hosted-Update-Delivery.md §6).
+  updater:
+    build:
+      context: .
+      dockerfile: ./updater/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - UPDATER_PORT=4000
+      - UPDATER_TOKEN=${UPDATER_TOKEN:?UPDATER_TOKEN is required}
+      - COSIGN_IDENTITY=${COSIGN_IDENTITY:-}
+      - COSIGN_OIDC_ISSUER=${COSIGN_OIDC_ISSUER:-https://token.actions.githubusercontent.com}
+      - COSIGN_PUBLIC_KEY=${COSIGN_PUBLIC_KEY:-}
+      - COSIGN_VERIFY_ARGS=${COSIGN_VERIFY_ARGS:-}
+      - UPDATE_VERIFY_SIGNATURE=${UPDATE_VERIFY_SIGNATURE:-true}
+      - APP_IMAGE=${APP_IMAGE:-invoices:latest}
+      - UPDATE_SERVICE=app
+      - COMPOSE_FILE=/app/invoices/compose.yaml
+      - APP_PUBLIC_URL=http://app:3000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./compose.yaml:/app/invoices/compose.yaml:ro
+      - ./backups:/app/invoices/backups
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=invoices
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

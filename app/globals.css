@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  font-family: var(--font-geist-sans);
+}
+
+.font-mono {
+  font-family: var(--font-geist-mono);
+}
+
+/* Clean dark accounting theme */
+input, select, textarea {
+  background-color: #18181b;
+  border-color: #27272a;
+  color: #e4e4e7;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #3f3f46;
+  outline: none;
+}
+
+/* Numeric fields keep validation and mobile keyboards without browser spin controls. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+/* === Make EVERYTHING clickable show the hand pointer === */
+/* Native controls */
+button:not(:disabled),
+a,
+[role="button"],
+label[for],
+input[type="checkbox"],
+input[type="radio"],
+select,
+summary {
+  cursor: pointer;
+}
+
+/* Custom clickable elements (divs, spans, etc. used as buttons/rows) */
+.cursor-pointer,
+[onclick],
+div[onClick],
+span[onClick],
+p[onClick],
+li[onClick] {
+  cursor: pointer;
+}
+
+/* Common interactive patterns in this app */
+[tabindex]:not([tabindex="-1"]) {
+  cursor: pointer;
+}
+
+/* === Print / PDF export (Reports) === */
+@media print {
+  @page {
+    margin: 1.5cm;
+  }
+  html,
+  body {
+    height: auto !important;
+    background: #fff !important;
+  }
+  /* Remove all non-report chrome from the printed layout (these are siblings of
+     the report pane, never ancestors of #report-print-area, so display:none is safe). */
+  .no-print {
+    display: none !important;
+  }
+  /* Hide everything by default, then re-show only the report container. */
+  body * {
+    visibility: hidden;
+  }
+  #report-print-area,
+  #report-print-area * {
+    visibility: visible;
+  }
+  #report-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff;
+    color: #000;
+    padding: 8px 4px;
+  }
+}
