@@ -122,7 +122,7 @@ export default function InvitePage() {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-900 text-white">
         <div className="w-80 space-y-4 text-center">
-          <img src="/entrytwo-logo.svg" alt="entrytwo" className="h-8 w-auto mx-auto" />
+          <img src="" alt="invoices" className="h-8 w-auto mx-auto" />
           <h1 className="text-xl font-semibold">{t('notValidTitle')}</h1>
           <p className="text-sm text-zinc-400">{info?.error || t('invalid')}</p>
           <p className="text-xs text-zinc-500">{t('contactInviter')}</p>
@@ -138,7 +138,7 @@ export default function InvitePage() {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-900 text-white">
         <div className="w-80 space-y-4 text-center">
-          <img src="/entrytwo-logo.svg" alt="entrytwo" className="h-8 w-auto mx-auto" />
+          <img src="" alt="invoices" className="h-8 w-auto mx-auto" />
           <h1 className="text-xl font-semibold">{tSignin('checkEmail')}</h1>
           <p className="text-sm text-zinc-400">{tSignin('magicSent', { email: info.email || '' })}</p>
           <p className="text-xs text-zinc-500">{tSignin('magicHint')}</p>
@@ -158,7 +158,7 @@ export default function InvitePage() {
     <div className="flex h-screen items-center justify-center bg-zinc-900 text-white">
       <div className="w-96 space-y-6">
         <div className="text-center">
-          <img src="/entrytwo-logo.svg" alt="entrytwo" className="h-8 w-auto mx-auto mb-3" />
+          <img src="" alt="invoices" className="h-8 w-auto mx-auto mb-3" />
           <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
         </div>
 

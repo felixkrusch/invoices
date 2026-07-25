@@ -167,7 +167,7 @@ export default function SignInPage() {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-900 text-white">
         <div className="w-80">
-          <img src="/entrytwo-logo.svg" alt="entrytwo" className="h-8 w-auto mb-6" />
+          <div className="mb-6 text-lg font-semibold tracking-tight">invoices</div>
           <form onSubmit={handleBootstrap} className="space-y-4">
             <h1 className="text-xl font-semibold">{t('firstAdminTitle')}</h1>
             <p className="text-sm text-zinc-400">{t('firstAdminDesc')}</p>
@@ -209,7 +209,7 @@ export default function SignInPage() {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-900 text-white">
         <div className="w-80 space-y-4">
-          <img src="/entrytwo-logo.svg" alt="entrytwo" className="h-8 w-auto mb-2" />
+          <img src="" alt="invoices" className="h-8 w-auto mb-2" />
           <h1 className="text-xl mb-2">{t('checkEmail')}</h1>
           <p className="text-zinc-400">{t('magicSent', { email })}</p>
           <p className="text-xs text-zinc-500">{t('magicHint')}</p>
@@ -234,7 +234,7 @@ export default function SignInPage() {
   return (
     <div className="flex h-screen items-center justify-center bg-zinc-900 text-white">
       <div className="w-80">
-        <img src="/entrytwo-logo.svg" alt="entrytwo" className="h-8 w-auto mb-6" />
+        <img src="" alt="invoices" className="h-8 w-auto mb-6" />
         <div className="space-y-4">
           <p className="text-sm text-zinc-400">{t('description')}</p>
 

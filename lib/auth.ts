@@ -162,11 +162,25 @@ const devProvider = CredentialsProvider({
   },
 })
 
+// Always keep at least one provider so Auth.js session/csrf endpoints stay healthy.
+// In production without SMTP/OAuth, sign-in UI shows configuration guidance via /api/auth/methods.
+const fallbackProvider = CredentialsProvider({
+  id: 'unavailable',
+  name: 'Not configured',
+  credentials: { email: { label: 'Email', type: 'email' } },
+  async authorize() {
+    return null
+  },
+})
+
 const allProviders = [
   ...emailProviders,
   ...oauthProviders,
   ...(!isProd ? [devProvider] : []),
 ]
+if (allProviders.length === 0) {
+  allProviders.push(fallbackProvider)
+}
 
 // During `next build`, NODE_ENV=production but secrets are often unset (Docker
 // multi-stage). Do not throw at module load — entrypoint + instrumentation
@@ -407,69 +421,83 @@ const authConfig = NextAuth({
     },
 
     async session({ session, user, token }) {
-      let userId = (user?.id as string | undefined) || (token?.id as string | undefined) || token?.sub
-      if (!userId && session.user?.email) {
-        userId = (
-          await prisma.user.findUnique({
-            where: { email: normalizeEmail(session.user.email) },
-            select: { id: true },
-          })
-        )?.id
-      }
-      if (session.user && userId) {
-        session.user.id = userId
-        const dbUser = await prisma.user.findUnique({
-          where: { id: userId },
-          select: {
-            role: true,
-            totpEnabled: true,
-            sessionVersion: true,
-            disabled: true,
-            email: true,
-            name: true,
-            image: true,
-          },
-        })
-        if (
-          !dbUser ||
-          dbUser.disabled ||
-          token?.revoked ||
-          token?.sessionVersion !== dbUser.sessionVersion
-        ) {
-          return { ...session, user: { ...session.user, id: '' } }
+      try {
+        let userId = (user?.id as string | undefined) || (token?.id as string | undefined) || token?.sub
+        if (!userId && session.user?.email) {
+          userId = (
+            await prisma.user.findUnique({
+              where: { email: normalizeEmail(session.user.email) },
+              select: { id: true },
+            })
+          )?.id
         }
-        session.user.role = dbUser.role
-        session.user.totpEnabled = dbUser.totpEnabled || false
-        session.user.email = dbUser.email
-        session.user.name = dbUser.name
-        session.user.image = dbUser.image
-        session.sessionVersion = dbUser.sessionVersion
+        if (session.user && userId) {
+          session.user.id = userId
+          const dbUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+              role: true,
+              totpEnabled: true,
+              sessionVersion: true,
+              disabled: true,
+              email: true,
+              name: true,
+              image: true,
+            },
+          })
+          if (
+            !dbUser ||
+            dbUser.disabled ||
+            token?.revoked ||
+            token?.sessionVersion !== dbUser.sessionVersion
+          ) {
+            return { ...session, user: { ...session.user, id: '' } }
+          }
+          session.user.role = dbUser.role
+          session.user.totpEnabled = dbUser.totpEnabled || false
+          session.user.email = dbUser.email
+          session.user.name = dbUser.name
+          session.user.image = dbUser.image
+          session.sessionVersion = dbUser.sessionVersion
+        }
+        session.totpSessionId = token?.totpSessionId
+        return session
+      } catch {
+        // DB down during session poll — return unauthenticated session JSON, not empty body
+        return {
+          ...session,
+          user: session.user ? { ...session.user, id: '' } : session.user,
+        }
       }
-      session.totpSessionId = token?.totpSessionId
-      return session
     },
 
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id as string
-        const role = 'role' in user ? (user as { role?: string }).role : undefined
-        token.role =
-          role === 'ADMIN' || role === 'ACCOUNTANT' || role === 'VIEWER' ? role : undefined
-        token.sessionVersion = await prisma.user
-          .findUnique({ where: { id: user.id as string }, select: { sessionVersion: true } })
-          .then(value => value?.sessionVersion ?? 0)
-        token.revoked = false
-      } else if (token.id || token.sub) {
-        const current = await prisma.user.findUnique({
-          where: { id: String(token.id || token.sub) },
-          select: { sessionVersion: true, disabled: true },
-        })
-        if (!current || current.disabled || current.sessionVersion !== token.sessionVersion) {
-          token.revoked = true
+      try {
+        if (user) {
+          token.id = user.id as string
+          const role = 'role' in user ? (user as { role?: string }).role : undefined
+          token.role =
+            role === 'ADMIN' || role === 'ACCOUNTANT' || role === 'VIEWER' ? role : undefined
+          token.sessionVersion = await prisma.user
+            .findUnique({ where: { id: user.id as string }, select: { sessionVersion: true } })
+            .then(value => value?.sessionVersion ?? 0)
+            .catch(() => 0)
+          token.revoked = false
+        } else if (token.id || token.sub) {
+          const current = await prisma.user.findUnique({
+            where: { id: String(token.id || token.sub) },
+            select: { sessionVersion: true, disabled: true },
+          }).catch(() => null)
+          if (!current || current.disabled || current.sessionVersion !== token.sessionVersion) {
+            token.revoked = true
+          }
         }
+        if (!token.totpSessionId) token.totpSessionId = randomUUID()
+        return token
+      } catch {
+        if (!token.totpSessionId) token.totpSessionId = randomUUID()
+        return token
       }
-      if (!token.totpSessionId) token.totpSessionId = randomUUID()
-      return token
     },
   },
   events: {

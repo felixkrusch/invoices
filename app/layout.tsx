@@ -57,7 +57,12 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-200">
-        <SessionProvider>
+        <SessionProvider
+          refetchOnWindowFocus={false}
+          refetchInterval={0}
+          // Avoid noisy ClientFetchError loops when auth is briefly unavailable
+          refetchWhenOffline={false}
+        >
           <NextIntlClientProvider locale={locale} messages={messages}>
             {children}
           </NextIntlClientProvider>
