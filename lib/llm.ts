@@ -79,7 +79,7 @@ export function createLlmModel(config: LlmConfig) {
       (config.provider === 'kilocode' ? 'https://api.kilo.ai/api/gateway' : undefined) ||
       (config.provider === 'openrouter' ? 'https://openrouter.ai/api/v1' : undefined)
     const headers = config.provider === 'openrouter'
-      ? { 'HTTP-Referer': 'https://entrytwo.local', 'X-Title': 'entrytwo' }
+      ? { 'HTTP-Referer': process.env.APP_PUBLIC_URL || 'http://localhost:3000', 'X-Title': process.env.APP_DISPLAY_NAME || 'invoices' }
       : undefined
     return openaiCompat(base, headers)(config.model)
   }

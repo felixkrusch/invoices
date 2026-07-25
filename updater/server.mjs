@@ -17,7 +17,7 @@ const execAsync = promisify(exec)
 
 const PORT = Number(process.env.UPDATER_PORT || 4000)
 const TOKEN = process.env.UPDATER_TOKEN || ''
-const LOCK_FILE = join('/tmp', 'entrytwo-updater.lock')
+const LOCK_FILE = join('/tmp', 'invoices-updater.lock')
 
 /** @type {{ status: 'idle'|'updating'|'success'|'error', progress: string, error?: string, message?: string }} */
 let state = { status: 'idle', progress: '' }
@@ -165,4 +165,4 @@ const server = createServer(async (req, res) => {
   send(404, { error: 'not found' })
 })
 
-server.listen(PORT, () => console.log(`entrytwo updater sidecar listening on :${PORT}`))
+server.listen(PORT, () => console.log(`invoices updater sidecar listening on :${PORT}`))

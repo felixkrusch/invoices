@@ -37,13 +37,34 @@ function AppContent({ children }: { children: ReactNode }) {
   }, [pathname, router])
 
   const rawView = searchParams?.get('view')
-  const view = (rawView as 'dashboard' | 'contacts' | 'invoicing') || 'invoicing'
+  // Right panel: invoicing (default) or contacts. Chat is always the left column.
+  const view = (rawView === 'contacts' ? 'contacts' : 'invoicing') as 'contacts' | 'invoicing'
 
   useEffect(() => {
-    if (rawView && !['dashboard', 'contacts', 'invoicing'].includes(rawView)) {
+    if (rawView && !['dashboard', 'contacts', 'invoicing', ''].includes(rawView)) {
       router.replace('/app?view=invoicing')
     }
   }, [rawView, router])
+
+  useEffect(() => {
+    // Chat may open contacts/invoicing via custom events
+    const openContacts = () => {
+      const params = new URLSearchParams(searchParams?.toString() || '')
+      params.set('view', 'contacts')
+      router.push(`/app?${params.toString()}`)
+    }
+    const openInvoicing = () => {
+      const params = new URLSearchParams(searchParams?.toString() || '')
+      params.set('view', 'invoicing')
+      router.push(`/app?${params.toString()}`)
+    }
+    window.addEventListener('open-contacts', openContacts)
+    window.addEventListener('open-invoicing', openInvoicing)
+    return () => {
+      window.removeEventListener('open-contacts', openContacts)
+      window.removeEventListener('open-invoicing', openInvoicing)
+    }
+  }, [router, searchParams])
 
   useEffect(() => {
     fetch('/api/bootstrap/status')
@@ -51,6 +72,10 @@ function AppContent({ children }: { children: ReactNode }) {
       .then(d => setNeedsBootstrap(!!d.needsBootstrap))
       .catch(() => setNeedsBootstrap(false))
   }, [])
+
+  useEffect(() => {
+    if (needsBootstrap) router.replace('/auth/signin')
+  }, [needsBootstrap, router])
 
   const loadLicense = useCallback(async () => {
     setLicenseLoading(true)
@@ -83,53 +108,42 @@ function AppContent({ children }: { children: ReactNode }) {
   }
 
   if (needsBootstrap === null) {
-    return <div className="h-screen bg-zinc-950" />
+    return (
+      <div className="flex h-screen items-center justify-center bg-zinc-950 text-zinc-400">
+        {tShell('checkingSetup') || 'Loading…'}
+      </div>
+    )
   }
 
-  const setView = (v: string) => {
-    const params = new URLSearchParams(searchParams?.toString() || '')
-    params.set('view', v)
-    router.push(`/app?${params.toString()}`)
+  if (needsBootstrap) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-zinc-950 text-zinc-400">
+        {tShell('openingSetup') || 'Opening setup…'}
+      </div>
+    )
   }
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-950 text-zinc-200">
-      <Suspense fallback={<div className="h-11 border-b border-zinc-800 bg-zinc-950" />}>
-        <TopBar showSettings={true} onOpenLicenseModal={() => setShowLicenseModal(true)} />
-      </Suspense>
-
-      <div className="flex items-center gap-1 px-3 py-2 border-b border-zinc-800 bg-zinc-950/80">
-        {([
-          ['invoicing', tShell('invoicing') || 'Invoices'],
-          ['contacts', tShell('contacts') || 'Contacts'],
-          ['dashboard', tShell('chat') || 'Chat'],
-        ] as const).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setView(id)}
-            className={`px-3 py-1.5 rounded text-sm ${view === id ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
-          >
-            {label}
-          </button>
-        ))}
-        <span className="ml-auto text-[10px] uppercase tracking-wider text-zinc-600 px-2">Invoicing only</span>
+    <div className="flex h-screen flex-col bg-zinc-950 text-zinc-200">
+      <div className="no-print shrink-0">
+        <Suspense fallback={<div className="h-11 border-b border-zinc-800 bg-zinc-950" />}>
+          <TopBar showSettings={true} onOpenLicenseModal={() => setShowLicenseModal(true)} />
+        </Suspense>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <ErrorBoundary>
-          {view === 'dashboard' && children}
-          {view === 'contacts' && (
-            <div className="h-full overflow-auto">
-              <ContactsEmbed />
-            </div>
-          )}
-          {view === 'invoicing' && (
-            <div className="h-full overflow-auto">
-              <InvoicingPanel />
-            </div>
-          )}
-        </ErrorBoundary>
+      {/* Split: chat left · workspace right (chat left, workspace right) */}
+      <div className="flex min-h-0 flex-1">
+        <div className="no-print flex w-full flex-col border-r border-zinc-800 md:w-2/5">
+          {children}
+        </div>
+
+        <div className="hidden min-h-0 flex-1 overflow-auto bg-zinc-900 p-4 md:block md:p-6">
+          <div className="mx-auto max-w-5xl space-y-6">
+            <ErrorBoundary>
+              {view === 'contacts' ? <ContactsEmbed /> : <InvoicingPanel />}
+            </ErrorBoundary>
+          </div>
+        </div>
       </div>
 
       <LicenseModal

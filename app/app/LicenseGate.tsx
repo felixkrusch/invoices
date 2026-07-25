@@ -65,11 +65,20 @@ export default function LicenseGate({ onActivated }: LicenseGateProps) {
           {error && <div className="text-sm text-rose-400">{error}</div>}
         </div>
 
-        <div className="mt-6 text-xs text-zinc-500">
-          <a href="https://entrytwo.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-            {t('getOne')}
-          </a>
-        </div>
+        {process.env.NEXT_PUBLIC_LICENSE_URL ? (
+          <div className="mt-6 text-xs text-zinc-500">
+            <a
+              href={process.env.NEXT_PUBLIC_LICENSE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:underline"
+            >
+              {t('getOne')}
+            </a>
+          </div>
+        ) : (
+          <div className="mt-6 text-xs text-zinc-500">{t('getOne')}</div>
+        )}
       </div>
     </div>
   )

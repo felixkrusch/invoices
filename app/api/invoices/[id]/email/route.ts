@@ -1,23 +1,44 @@
 import { NextResponse } from 'next/server'
 import { requireUser } from '@/lib/authz'
 import { enqueueJob } from '@/lib/jobs'
+import { isSmtpConfigured, sendInvoiceEmail } from '@/lib/email'
 import { logger } from '@/lib/logger'
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!await requireUser(['ADMIN', 'ACCOUNTANT'])) return NextResponse.json({ error: 'Accountant access required' }, { status: 403 })
+  if (!await requireUser(['ADMIN', 'ACCOUNTANT'])) {
+    return NextResponse.json({ error: 'Accountant access required' }, { status: 403 })
+  }
   const { id } = await params
   try {
+    if (!isSmtpConfigured()) {
+      return NextResponse.json(
+        { error: 'Email not configured (set SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM)' },
+        { status: 503 },
+      )
+    }
+
     const { to, subject, body } = await request.json().catch(() => ({} as { to?: string; subject?: string; body?: string }))
 
-    const job = await enqueueJob('EMAIL_INVOICE', `invoice-email:${id}:${crypto.randomUUID()}`, { invoiceId: id, to, subject, body })
+    // Development: send immediately (no worker required).
+    // Production: queue for the durable worker (compose service `worker`).
+    if (process.env.NODE_ENV !== 'production') {
+      const result = await sendInvoiceEmail({ invoiceId: id, to, subject, body })
+      return NextResponse.json({ success: true, queued: false, sent: true, ...result })
+    }
+
+    const job = await enqueueJob(
+      'EMAIL_INVOICE',
+      `invoice-email:${id}:${crypto.randomUUID()}`,
+      { invoiceId: id, to, subject, body },
+    )
     return NextResponse.json({ success: true, queued: true, jobId: job.id }, { status: 202 })
   } catch (error: unknown) {
     const err = error as { message?: string }
-    if (err?.message === 'Email not configured') {
-      return NextResponse.json({ error: 'Email not configured (set SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM)' }, { status: 503 })
+    if (err?.message === 'Email not configured' || err?.message === 'No recipient email') {
+      return NextResponse.json({ error: err.message }, { status: err.message === 'Email not configured' ? 503 : 400 })
     }
     logger.error('Email send error', { error: error instanceof Error ? error.message : String(error) })
     return NextResponse.json({ error: 'Failed to send email' }, { status: 500 })

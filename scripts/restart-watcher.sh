@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Update Restart Watcher for entrytwo
+# Update Restart Watcher for invoices
 # This script monitors for the .restart file and triggers application restart
 # Designed to run as a background process alongside the Next.js server
 
-APP_DIR="/app/entrytwo"
+APP_DIR="/app/invoices"
 RESTART_FILE="$APP_DIR/.restart"
 LOG_FILE="$APP_DIR/logs/restart-watcher.log"
 
@@ -19,13 +19,13 @@ restart_app() {
   
   # Try PM2 first
   if command -v pm2 &> /dev/null; then
-    pm2 restart entrytwo 2>/dev/null && log "Restarted via PM2"
+    pm2 restart invoices 2>/dev/null && log "Restarted via PM2"
     return
   fi
   
   # Try systemd
   if command -v systemctl &> /dev/null; then
-    systemctl restart entrytwo 2>/dev/null && log "Restarted via systemd"
+    systemctl restart invoices 2>/dev/null && log "Restarted via systemd"
     return
   fi
   

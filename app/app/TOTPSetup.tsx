@@ -81,7 +81,7 @@ export default function TOTPSetup({ required = false }: { required?: boolean }) 
           >
             Disable TOTP
           </button>
-          {required && <a href="/app" className="inline-block rounded bg-white px-3 py-1.5 text-xs font-medium text-black ml-2">Continue to entrytwo</a>}
+          {required && <a href="/app" className="inline-block rounded bg-white px-3 py-1.5 text-xs font-medium text-black ml-2">Continue to app</a>}
         </div>
       )}
 
@@ -117,7 +117,7 @@ export default function TOTPSetup({ required = false }: { required?: boolean }) 
             {recoveryCodes.map(code => <div key={code}>{code}</div>)}
           </div>
           <button onClick={() => setRecoveryCodes([])} className="rounded border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:bg-zinc-800">I saved these codes</button>
-          {required && <a href="/app" className="ml-2 inline-block rounded bg-white px-3 py-1 text-xs font-medium text-black">Continue to entrytwo</a>}
+          {required && <a href="/app" className="ml-2 inline-block rounded bg-white px-3 py-1 text-xs font-medium text-black">Continue to app</a>}
         </div>
       )}
 

@@ -1,7 +1,7 @@
 # Self-Hosted, Per-Customer Update Delivery
 
 **Status:** Core delivery pipeline implemented (signed images, cosign keyless, GHCR, updater sidecar, manifest, health-gated rollback). Commercial model and trial-to-licensed transition are now specified in [Licensing-and-Trial.md](./Licensing-and-Trial.md). The separate entitlement service for license key issuance and verification is still to be built.
-**Context:** entrytwo is a **proprietary, closed-source**, self-hosted, double-entry
+**Context:** invoices uses the same **self-hosted update architecture** as entrytwo (optional add-on; not required for first install). Original context: entrytwo was a
 accounting app. The commercial model is **perpetual license + annual maintenance/
 support subscription** (see §9). Deployment is *one instance per customer* (or per
 organization), where the customer owns their server and their financial data. This
@@ -109,7 +109,7 @@ separation is the core security property: a compromised app cannot mutate itself
 A single GitHub Actions `release` workflow, triggered on version tags (`v*`):
 
 1. Checkout, set up Buildx, build & **push by digest** to GHCR
-   (`ghcr.io/<org>/entrytwo:1.4.2` + `@sha256:…`).
+   (`ghcr.io/<org>/invoices:1.4.2` + `@sha256:…`).
 2. **Sign** with cosign keyless (`cosign sign --yes ghcr.io/...@<digest>`).
    Sign the *multi-arch index*, not per-arch manifests.
 3. **Attest** SBOM (Syft/CycloneDX) + **SLSA provenance** (`actions/attest-build-provenance`).

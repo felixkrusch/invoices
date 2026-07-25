@@ -6,6 +6,8 @@ import { publicAuthBaseUrl } from '@/lib/env'
 
 export { isSmtpConfigured }
 
+const APP_NAME = process.env.APP_DISPLAY_NAME || 'invoices'
+
 function transporter() {
   const host = process.env.SMTP_HOST
   const port = Number(process.env.SMTP_PORT || 587)
@@ -21,7 +23,7 @@ function transporter() {
 }
 
 function fromAddress() {
-  return process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@entrytwo.local'
+  return process.env.SMTP_FROM || process.env.SMTP_USER || `noreply@${APP_NAME}.local`
 }
 
 function baseUrl() {
@@ -34,6 +36,7 @@ export async function sendInvoiceEmail(input: {
   subject?: string
   body?: string
 }) {
+  if (!isSmtpConfigured()) throw new Error('Email not configured')
   const invoice = await prisma.invoice.findUnique({
     where: { id: input.invoiceId },
     include: { contact: true },
@@ -63,11 +66,12 @@ export async function sendInvitationEmail(input: {
   token: string
   expiresAt: string
 }) {
+  if (!isSmtpConfigured()) throw new Error('Email not configured')
   const inviteUrl = new URL('/auth/invite', baseUrl())
   inviteUrl.searchParams.set('token', input.token)
   const expires = new Date(input.expiresAt).toLocaleString()
   const text = [
-    'You have been invited to entrytwo.',
+    `You have been invited to ${APP_NAME}.`,
     '',
     `Accept your invitation for ${input.email} before ${expires}:`,
     '',
@@ -78,7 +82,7 @@ export async function sendInvitationEmail(input: {
 
   const html = `
     <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#18181b">
-      <h1 style="font-size:20px;margin:0 0 12px">You’re invited to entrytwo</h1>
+      <h1 style="font-size:20px;margin:0 0 12px">You’re invited to ${escapeHtml(APP_NAME)}</h1>
       <p style="margin:0 0 16px;color:#52525b;font-size:14px;line-height:1.5">
         Accept your invitation for <strong>${escapeHtml(input.email)}</strong> before ${escapeHtml(expires)}.
       </p>
@@ -99,15 +103,16 @@ export async function sendInvitationEmail(input: {
   await transporter().sendMail({
     from: fromAddress(),
     to: input.email,
-    subject: 'Your entrytwo invitation',
+    subject: `Your ${APP_NAME} invitation`,
     text,
     html,
   })
 }
 
 export async function sendMagicLinkEmail(input: { email: string; url: string }) {
+  if (!isSmtpConfigured()) throw new Error('Email not configured')
   const text = [
-    'Sign in to entrytwo',
+    `Sign in to ${APP_NAME}`,
     '',
     'Use this one-time link (expires in 30 minutes):',
     '',
@@ -118,7 +123,7 @@ export async function sendMagicLinkEmail(input: { email: string; url: string }) 
 
   const html = `
     <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#18181b">
-      <h1 style="font-size:20px;margin:0 0 12px">Sign in to entrytwo</h1>
+      <h1 style="font-size:20px;margin:0 0 12px">Sign in to ${escapeHtml(APP_NAME)}</h1>
       <p style="margin:0 0 16px;color:#52525b;font-size:14px;line-height:1.5">
         Click the button below to sign in as <strong>${escapeHtml(input.email)}</strong>.
         This link expires in <strong>30 minutes</strong> and can only be used once.
@@ -139,7 +144,7 @@ export async function sendMagicLinkEmail(input: { email: string; url: string }) 
   await transporter().sendMail({
     from: fromAddress(),
     to: input.email,
-    subject: 'Your entrytwo sign-in link',
+    subject: `Your ${APP_NAME} sign-in link`,
     text,
     html,
   })

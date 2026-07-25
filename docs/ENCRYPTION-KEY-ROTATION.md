@@ -20,7 +20,7 @@ The key is **never** stored in the database. It must be identical on every resto
 
 1. **Backup first (mandatory)**
    - Trigger a full portable backup from Admin → Backup.
-   - Download the `.etbackup` archive and store it off-host.
+   - Download the `.invbackup` archive and store it off-host.
    - Verify the backup manifest passes integrity checks on a separate machine.
 
 2. **Prepare the new key**

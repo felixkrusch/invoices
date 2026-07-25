@@ -818,7 +818,7 @@
         "pasteKey": "Paste your license key",
         "invalid": "Invalid license key",
         "failed": "Failed to activate license",
-        "getOne": "Get one at entrytwo.com",
+        "getOne": "Contact your vendor for a license key",
         "verifyOnce": "verify once, trust forever"
       },
       "modal": {

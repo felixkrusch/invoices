@@ -84,7 +84,7 @@ const oauthProviders = []
 if (isSmtpConfigured()) {
   emailProviders.push(
     EmailProvider({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@entrytwo.local',
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@invoices.local',
       maxAge: 60 * 30,
       async sendVerificationRequest({ identifier, url }) {
         await sendMagicLinkEmail({ email: identifier, url })
@@ -120,7 +120,7 @@ const devProvider = CredentialsProvider({
   id: 'credentials',
   name: 'Development',
   credentials: {
-    email: { label: 'Email', type: 'email', placeholder: 'dev@entrytwo.local' },
+    email: { label: 'Email', type: 'email', placeholder: 'dev@invoices.local' },
   },
   async authorize(credentials) {
     if (isProd) return null

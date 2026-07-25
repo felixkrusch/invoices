@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }),
   ])
 
-  const label = `entrytwo:${user.email}`
-  const totpUri = `otpauth://totp/${encodeURIComponent(label)}?secret=${secret}&issuer=${encodeURIComponent('entrytwo')}&algorithm=SHA1&digits=6&period=30`
+  const label = `${process.env.APP_DISPLAY_NAME || 'invoices'}:${user.email}`
+  const totpUri = `otpauth://totp/${encodeURIComponent(label)}?secret=${secret}&issuer=${encodeURIComponent(process.env.APP_DISPLAY_NAME || 'invoices')}&algorithm=SHA1&digits=6&period=30`
   return NextResponse.json({ secret, totpUri })
 }

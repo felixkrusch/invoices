@@ -70,10 +70,47 @@ Open the site → bootstrap first **ADMIN** → company settings → tax rates �
 
 See `docs/Self-Hosted-Update-Delivery.md`. Image name defaults to `invoices:latest`.
 
-## 8. What this app does *not* do
+## 8. Email (invoice send + magic link)
+
+| Variable | Required |
+|----------|----------|
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Yes for real mail |
+| `SMTP_FROM` | Recommended |
+| Compose service **`worker`** | **Required in production** for queued invoice email |
+
+Without the worker, production invoice emails stay in `DurableJob` as PENDING.
+
+Dev (`npm run dev`) sends invoice email **inline** (no worker needed).
+
+## 9. Payment QR on PDFs
+
+Admin → Company → bank **IBAN** (stored as `company.bank.iban`).  
+EPC/SEPA QR is generated on PDF when IBAN is present. Empty IBAN → no payment QR.
+
+## 10. Backup
+
+Admin → Backup → download `.invbackup`. Restore needs the **same `ENCRYPTION_KEY`**.  
+Format is invoices-only (not compatible with entrytwo).
+
+## 11. Updates
+
+In-app update expects `UPDATE_MANIFEST_URL` + published Docker images + optional updater profile.  
+Until you run a release pipeline, deploy with `docker compose up -d --build` or image pull manually.
+
+## 12. What this app does *not* do
 
 - Double-entry bookkeeping / chart of accounts / P&L
 - Bank feeds as ledger truth
 - Expense claims workflow
 
-Books stay with the accountant. Export invoice PDFs/CSV as needed.
+Books stay with the accountant. Export invoice PDFs as needed.
+
+## 13. Pre-sale smoke checklist
+
+1. Fresh DB migrate + first admin bootstrap  
+2. Company name + IBAN + logo  
+3. Create contact + invoice → PDF shows QR  
+4. SMTP + worker → send invoice email arrives  
+5. Backup export downloads; restore on a throwaway DB once  
+6. Invite second user (if multi-user)  
+7. Sign out / sign in with magic link or OAuth

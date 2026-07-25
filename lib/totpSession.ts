@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 
-export const TOTP_SESSION_COOKIE = 'entrytwo.totp-verified'
+export const TOTP_SESSION_COOKIE = 'invoices.totp-verified'
 const MAX_AGE_SECONDS = 12 * 60 * 60
 
 function secret() {

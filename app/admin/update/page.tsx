@@ -118,7 +118,7 @@ export default function UpdatePage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold">{t('systemUpdate')}</h1>
         <p className="text-xs text-zinc-500 mt-1">
-          Check for and apply updates to entrytwo.
+          Check for and apply application updates.
         </p>
       </div>
 

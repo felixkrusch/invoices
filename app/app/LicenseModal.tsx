@@ -75,9 +75,18 @@ export default function LicenseModal({ isOpen, onClose, onActivated }: LicenseMo
           </button>
         </div>
 
-        <div className="mt-3 text-[10px] text-zinc-500">
-          <a href="https://entrytwo.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{t('getOne')}</a>
-        </div>
+        {process.env.NEXT_PUBLIC_LICENSE_URL ? (
+          <div className="mt-3 text-[10px] text-zinc-500">
+            <a
+              href={process.env.NEXT_PUBLIC_LICENSE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:underline"
+            >
+              {t('getOne')}
+            </a>
+          </div>
+        ) : null}
       </div>
     </div>
   )
