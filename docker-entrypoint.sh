@@ -16,11 +16,13 @@ if [ -z "$JOB_RUNNER_SECRET" ] || [ ${#JOB_RUNNER_SECRET} -lt 32 ]; then
   exit 1
 fi
 
-if [ "${1:-server}" != "worker" ] && { [ -z "$UPDATER_TOKEN" ] || [ "$UPDATER_TOKEN" = "changeme" ]; }; then
-  echo "invoices: UPDATER_TOKEN must be configured" >&2
+# Updater token only required when the sidecar updater is in use
+if [ "${1:-server}" != "worker" ] && [ -n "${UPDATER_URL:-}" ] && { [ -z "$UPDATER_TOKEN" ] || [ "$UPDATER_TOKEN" = "changeme" ]; }; then
+  echo "invoices: UPDATER_TOKEN must be configured when UPDATER_URL is set" >&2
   exit 1
 fi
 
+mkdir -p .data/files .data/backups uploads logs backups
 echo "invoices: running database migrations..."
 npx prisma migrate deploy
 

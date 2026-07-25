@@ -29,7 +29,11 @@ export async function GET(request: NextRequest) {
 
     // Basic storage reachability (no secret values)
     let storageOk = true
-    try { await access(join(process.cwd(), '.data')) } catch { storageOk = false }
+    try {
+      const { mkdir } = await import('fs/promises')
+      await mkdir(join(process.cwd(), '.data', 'files'), { recursive: true })
+      await access(join(process.cwd(), '.data'))
+    } catch { storageOk = false }
 
     // Basic webhook secret presence (no values)
     const stripeWebhook = !!process.env.STRIPE_WEBHOOK_SECRET
@@ -64,7 +68,9 @@ export async function GET(request: NextRequest) {
       },
       webhooks: { stripe: stripeWebhook ? 'configured' : 'missing', paypal: paypalWebhook ? 'configured' : 'missing' },
       jobs: { pending: jobsPending, deadLetter: jobsDead },
-      version: process.env.npm_package_version || 'unknown',
+      version: process.env.APP_VERSION || process.env.npm_package_version || 'unknown',
+      product: 'invoices',
+      licenseMode: process.env.LICENSE_MODE || 'open',
       requestId,
       ...(missingProdSecrets.length ? { missingProdSecrets } : {}),
     }

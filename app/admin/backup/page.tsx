@@ -1,9 +1,7 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
-
 import { useRef, useState } from 'react'
-import { Archive, CheckCircle2, Database, FileArchive, HardDriveDownload, ReceiptText, ShieldAlert, Upload } from 'lucide-react'
+import { Archive, CheckCircle2, Database, HardDriveDownload, ShieldAlert, Upload } from 'lucide-react'
 
 type ImportResult = {
   ok: boolean
@@ -12,17 +10,7 @@ type ImportResult = {
   imported: Record<string, number>
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
-}
-
 export default function BackupPage() {
-  const tForm = useTranslations('app.backupForm')
-  const t = useTranslations('app.adminPages')
-
   const fileRef = useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [confirmed, setConfirmed] = useState(false)
@@ -31,7 +19,6 @@ export default function BackupPage() {
 
   const handleExport = () => {
     setStatus(null)
-    // A normal browser navigation streams directly to disk instead of buffering a multi-GB archive in JavaScript.
     window.location.assign('/api/backup/export')
   }
 
@@ -44,14 +31,14 @@ export default function BackupPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/gzip',
-          'X-Entrytwo-Confirm-Replace': 'replace-all-data',
+          'X-Invoices-Confirm-Replace': 'replace-all-data',
         },
         body: selectedFile,
       })
       const result = await response.json() as ImportResult & { error?: string }
       if (!response.ok) throw new Error(result.error || 'Restore failed')
 
-      const details = Object.entries(result.imported)
+      const details = Object.entries(result.imported || {})
         .filter(([, count]) => count > 0)
         .map(([name, count]) => `${count.toLocaleString()} ${name}`)
       setStatus({
@@ -76,9 +63,10 @@ export default function BackupPage() {
           <Archive className="h-4 w-4" />
           Disaster recovery
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">{tForm('title')}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Backup & restore</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-          Move a complete entrytwo installation between local machines or VPS hosts. One compressed archive contains all accounting records, Git history, users, configuration, feeds, schedules, invoices, and uploaded receipts or statements.
+          Export a portable archive of users, contacts, invoices, tax rates, settings, chat history, and uploaded files.
+          Restore replaces all application data on this installation.
         </p>
       </div>
 
@@ -88,110 +76,93 @@ export default function BackupPage() {
             <div>
               <h2 className="flex items-center gap-2 font-medium text-zinc-100">
                 <HardDriveDownload className="h-4 w-4 text-emerald-400" />
-                Export complete archive
+                Export archive
               </h2>
-              <p className="mt-2 text-xs leading-5 text-zinc-500">{tForm('downloadHelp')}</p>
+              <p className="mt-2 text-xs leading-5 text-zinc-500">
+                Downloads a compressed .invbackup file. Keep it offline with your ENCRYPTION_KEY if you store secrets.
+              </p>
             </div>
-            <span className="rounded border border-emerald-900 bg-emerald-950/50 px-2 py-1 font-mono text-[10px] text-emerald-400">.etbackup</span>
+            <span className="rounded border border-emerald-900 bg-emerald-950/50 px-2 py-1 font-mono text-[10px] text-emerald-400">.invbackup</span>
           </div>
 
-          <div className="my-6 grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
-              <Database className="mb-2 h-4 w-4 text-sky-400" />
-              <div className="text-xs font-medium text-zinc-200">{tForm('completeDb')}</div>
-              <div className="mt-1 text-[11px] leading-4 text-zinc-500">All tables, original IDs, relationships, branches, events, and settings.</div>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
-              <ReceiptText className="mb-2 h-4 w-4 text-amber-400" />
-              <div className="text-xs font-medium text-zinc-200">{tForm('allDocs')}</div>
-              <div className="mt-1 text-[11px] leading-4 text-zinc-500">{tForm('allDocsHelp')}</div>
-            </div>
-          </div>
-
-          <div className="mb-5 rounded-lg border border-zinc-800 bg-black/20 p-3 text-[11px] leading-5 text-zinc-500">
-            Every database table and receipt is recorded in a versioned manifest with its byte size and SHA-256 checksum. Restore rejects incomplete, modified, or unsupported archives before changing data.
+          <div className="my-6 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+            <Database className="mb-2 h-4 w-4 text-sky-400" />
+            <div className="text-xs text-zinc-400">Contacts, invoices, tax rates, users, settings, files, chat</div>
           </div>
 
           <button
             type="button"
             onClick={handleExport}
-            className="mt-auto inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-medium text-zinc-950 transition hover:bg-emerald-400"
+            className="mt-auto rounded-lg bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
           >
-            <FileArchive className="h-4 w-4" />
-            Download full backup
+            Download backup
           </button>
         </section>
 
-        <section className="rounded-xl border border-rose-950 bg-zinc-950 p-6">
-          <div>
-            <h2 className="flex items-center gap-2 font-medium text-zinc-100">
-              <Upload className="h-4 w-4 text-rose-400" />
-              Restore complete archive
-            </h2>
-            <p className="mt-2 text-xs leading-5 text-zinc-500">Designed for a fresh installation or a deliberate full rollback.</p>
+        <section className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-950 p-6">
+          <h2 className="flex items-center gap-2 font-medium text-zinc-100">
+            <Upload className="h-4 w-4 text-amber-400" />
+            Restore archive
+          </h2>
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
+            This permanently replaces all data on this server. Export a current backup first.
+          </p>
+
+          <div className="mt-4 rounded-lg border border-amber-900/50 bg-amber-950/20 p-3 text-xs text-amber-200/90 flex gap-2">
+            <ShieldAlert className="h-4 w-4 shrink-0" />
+            Use the same ENCRYPTION_KEY that created the backup.
           </div>
 
-          <div className="my-5 flex gap-3 rounded-lg border border-rose-900/60 bg-rose-950/25 p-3">
-            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
-            <div className="text-xs leading-5 text-rose-200">
-              Restore replaces the entire current database and receipt directory. It is not a merge. Existing users and sessions are replaced by those in the archive.
-            </div>
-          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".invbackup,application/gzip"
+            className="mt-4 block w-full text-xs text-zinc-400"
+            onChange={e => {
+              setSelectedFile(e.target.files?.[0] || null)
+              setConfirmed(false)
+              setStatus(null)
+            }}
+          />
 
-          <label className="block cursor-pointer rounded-lg border border-dashed border-zinc-700 bg-zinc-900/40 p-5 text-center transition hover:border-zinc-600 hover:bg-zinc-900">
-            <FileArchive className="mx-auto h-6 w-6 text-zinc-500" />
-            <div className="mt-2 text-sm text-zinc-300">{selectedFile ? selectedFile.name : 'Choose an entrytwo backup archive'}</div>
-            <div className="mt-1 text-[11px] text-zinc-500">{selectedFile ? formatBytes(selectedFile.size) : '.etbackup files only'}</div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".etbackup,application/gzip"
-              disabled={importing}
-              className="hidden"
-              onChange={event => {
-                setSelectedFile(event.target.files?.[0] || null)
-                setConfirmed(false)
-                setStatus(null)
-              }}
-            />
-          </label>
-
-          <label className={`mt-4 flex items-start gap-3 rounded-lg border p-3 text-xs leading-5 ${selectedFile ? 'cursor-pointer border-zinc-800 text-zinc-300' : 'cursor-not-allowed border-zinc-900 text-zinc-600'}`}>
+          <label className="mt-4 flex items-start gap-2 text-xs text-zinc-400">
             <input
               type="checkbox"
-              className="mt-1 accent-rose-500"
               checked={confirmed}
-              disabled={!selectedFile || importing}
-              onChange={event => setConfirmed(event.target.checked)}
+              onChange={e => setConfirmed(e.target.checked)}
+              className="mt-0.5"
             />
-            <span>I understand that this permanently replaces all current entrytwo data and uploaded documents.</span>
+            I understand this will replace all invoices, contacts, users, and settings on this installation.
           </label>
 
           <button
             type="button"
-            onClick={handleImport}
             disabled={!selectedFile || !confirmed || importing}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => void handleImport()}
+            className="mt-auto rounded-lg border border-red-900 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-200 hover:bg-red-950/70 disabled:opacity-40"
           >
-            <Upload className="h-4 w-4" />
-            {importing ? 'Validating and restoring...' : 'Replace all data from backup'}
+            {importing ? 'Restoring…' : 'Restore backup'}
           </button>
         </section>
       </div>
 
       {status && (
-        <div className={`mt-6 rounded-xl border p-4 ${status.kind === 'success' ? 'border-emerald-900 bg-emerald-950/30' : 'border-rose-900 bg-rose-950/30'}`}>
-          <div className={`flex items-center gap-2 text-sm font-medium ${status.kind === 'success' ? 'text-emerald-300' : 'text-rose-300'}`}>
-            {status.kind === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
+        <div className={`mt-6 rounded-lg border p-4 text-sm ${
+          status.kind === 'success'
+            ? 'border-emerald-900 bg-emerald-950/30 text-emerald-200'
+            : 'border-red-900 bg-red-950/30 text-red-200'
+        }`}>
+          <div className="flex items-center gap-2 font-medium">
+            {status.kind === 'success' && <CheckCircle2 className="h-4 w-4" />}
             {status.message}
           </div>
-          {status.details?.length ? <div className="mt-2 text-[11px] leading-5 text-zinc-400">{status.details.join(' · ')}</div> : null}
+          {status.details?.length ? (
+            <ul className="mt-2 list-disc pl-5 text-xs opacity-90">
+              {status.details.map(d => <li key={d}>{d}</li>)}
+            </ul>
+          ) : null}
         </div>
       )}
-
-      <div className="mt-8 border-t border-zinc-800 pt-5 text-[11px] leading-5 text-zinc-500">
-        For VPS and Docker installations, keep the uploads volume persistent between container replacements. Export archives remain the portable off-host recovery copy and should be stored separately from the server. To preserve encrypted bank-feed credentials when moving hosts, configure the original <code className="text-zinc-300">ENCRYPTION_KEY</code> on the fresh installation before restoring.
-      </div>
     </div>
   )
 }

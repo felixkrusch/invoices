@@ -1,6 +1,11 @@
 import type { Prisma } from '@prisma/client'
 import { sendInvoiceEmail, sendInvitationEmail } from '@/lib/email'
 import { deleteExpiredThreads } from '@/lib/chatThreadStore'
+import { join } from 'path'
+import { mkdir, rm, stat } from 'fs/promises'
+import { buildBackupDirectory, BACKUP_EXTENSION } from '@/lib/backup'
+import * as tar from 'tar'
+import { createHash } from 'crypto'
 
 type Payload = Record<string, unknown>
 
@@ -30,7 +35,31 @@ export async function dispatchJob(type: string, payloadValue: Prisma.JsonValue) 
     })
   }
   if (type === 'CLEANUP_CHAT_THREADS') return deleteExpiredThreads()
+  if (type === 'BACKUP_CREATE') return runBackupJob(payload)
   throw new Error(`Unsupported job type: ${type}`)
+}
+
+async function runBackupJob(payload: Payload) {
+  const outDir = (payload.outDir as string) || join(process.cwd(), '.data', 'backups')
+  await mkdir(outDir, { recursive: true })
+  const ts = new Date().toISOString().replace(/[:.]/g, '-')
+  const contentRoot = join(outDir, `.build-${ts}`)
+  const archivePath = join(outDir, `backup-${ts}${BACKUP_EXTENSION}`)
+  try {
+    const manifest = await buildBackupDirectory(contentRoot)
+    await tar.c(
+      { gzip: true, cwd: contentRoot, file: archivePath, portable: true },
+      ['manifest.json', 'data', 'files'],
+    )
+    const size = (await stat(archivePath)).size
+    const hash = createHash('sha256')
+    hash.update(JSON.stringify(manifest))
+    await rm(contentRoot, { recursive: true, force: true }).catch(() => {})
+    return { ok: true, archive: archivePath, size, manifestHash: hash.digest('hex') }
+  } catch (e) {
+    await rm(contentRoot, { recursive: true, force: true }).catch(() => {})
+    throw e
+  }
 }
 
 function requiredString(payload: Payload, key: string) {

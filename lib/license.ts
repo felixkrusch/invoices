@@ -1,21 +1,23 @@
 import { prisma } from '@/lib/prisma'
 
-export const MASTER_LICENSE_KEY = 'FCKGW-RHQQ2-YXRKT-8TG6W-2B7Q8'
+/**
+ * LICENSE_MODE:
+ * - open (default for private friend installs): no trial gate; always licensed
+ * - trial: 30-day trial + optional key activation via LICENSE_VERIFY_URL / MASTER_LICENSE_KEY
+ */
+export function licenseMode(): 'open' | 'trial' {
+  const raw = (process.env.LICENSE_MODE || 'open').toLowerCase().trim()
+  return raw === 'trial' ? 'trial' : 'open'
+}
+
+export const MASTER_LICENSE_KEY = process.env.MASTER_LICENSE_KEY || ''
 
 export const TRIAL_DAYS = 30
-
-export interface LicenseStatus {
-  isLicensed: boolean
-  daysRemaining: number | null
-  firstUseAt: string | null
-  acceptedKey?: string | null
-}
 
 export function getDaysSince(date: Date | string): number {
   const start = typeof date === 'string' ? new Date(date) : date
   const now = new Date()
-  const diffMs = now.getTime() - start.getTime()
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
 }
 
 export function isWithinTrial(firstUseAt: string | null | undefined): boolean {
@@ -25,21 +27,13 @@ export function isWithinTrial(firstUseAt: string | null | undefined): boolean {
 
 export async function verifyLicenseKey(key: string): Promise<boolean> {
   if (!key) return false
-  if (key === MASTER_LICENSE_KEY) return true
+  if (MASTER_LICENSE_KEY && key === MASTER_LICENSE_KEY) return true
 
-  // IMPORTANT: "verify once, trust forever" policy
-  // This function is called ONLY during activation (see /api/license/activate).
-  // After a key is successfully accepted and stored, the app NEVER calls this again.
-  // All runtime decisions use the stored license.acceptedKey flag (see getLicenseStatus).
-  //
-  // The external service (entrytwo_verify at LICENSE_VERIFY_URL) performs:
-  // - Ed25519 signature verification of et1.<payload>.<sig> tokens
-  // - Optional Stripe re-check (if STRIPE_SECRET_KEY is configured on the service)
   const verifyUrl = process.env.LICENSE_VERIFY_URL
   if (verifyUrl) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 8000) // 8s safety timeout
+      const timeout = setTimeout(() => controller.abort(), 8000)
       const res = await fetch(verifyUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -52,11 +46,9 @@ export async function verifyLicenseKey(key: string): Promise<boolean> {
         return !!data.valid
       }
     } catch {
-      // network error / timeout / abort → fall through to false for non-master keys
+      // fall through
     }
   }
-
-  // No verify service configured (or call failed) → only master key works
   return false
 }
 
@@ -66,26 +58,27 @@ export interface LicenseStatusResponse {
   inTrial: boolean
   isLicensed: boolean
   acceptedKey: string | null
+  mode: 'open' | 'trial'
 }
 
 export async function getLicenseStatus(): Promise<LicenseStatusResponse> {
-  // "Verify once, trust forever"
-  // This function does NOT contact the license verify service.
-  // It only inspects the local Setting table:
-  // - license.firstUseAt (for trial calculation)
-  // - license.acceptedKey (if present → permanently licensed)
-  //
-  // The only place that ever calls the external service is verifyLicenseKey(),
-  // and that is called exclusively from /api/license/activate at key entry time.
-  //
-  // See: Licensing-and-Trial.md, app/api/license/activate/route.ts, app/api/license/status/route.ts
+  const mode = licenseMode()
+  if (mode === 'open') {
+    return {
+      firstUseAt: null,
+      daysRemaining: TRIAL_DAYS,
+      inTrial: false,
+      isLicensed: true,
+      acceptedKey: 'open',
+      mode,
+    }
+  }
 
-  // firstUseAt (records on first access)
   const firstUseSetting = await prisma.setting.findUnique({ where: { key: 'license.firstUseAt' } })
   let firstUseAt: string | null = null
-  if (firstUseSetting?.value && typeof firstUseSetting.value === 'object' && 'value' in firstUseSetting.value) {
-    firstUseAt = (firstUseSetting.value as any).value as string
-  } else if (firstUseSetting?.value && typeof firstUseSetting.value === 'string') {
+  if (firstUseSetting?.value && typeof firstUseSetting.value === 'object' && firstUseSetting.value !== null && 'value' in firstUseSetting.value) {
+    firstUseAt = (firstUseSetting.value as { value?: string }).value || null
+  } else if (typeof firstUseSetting?.value === 'string') {
     firstUseAt = firstUseSetting.value
   }
 
@@ -98,18 +91,16 @@ export async function getLicenseStatus(): Promise<LicenseStatusResponse> {
     })
   }
 
-  // accepted key — once a valid key has been accepted, we treat the app as permanently licensed.
   let acceptedKey: string | null = null
   const keySetting = await prisma.setting.findUnique({ where: { key: 'license.acceptedKey' } })
-  if (keySetting?.value && typeof keySetting.value === 'object' && 'value' in keySetting.value) {
-    acceptedKey = (keySetting.value as any).value as string
-  } else if (keySetting?.value && typeof keySetting.value === 'string') {
+  if (keySetting?.value && typeof keySetting.value === 'object' && keySetting.value !== null && 'value' in keySetting.value) {
+    acceptedKey = (keySetting.value as { value?: string }).value || null
+  } else if (typeof keySetting?.value === 'string') {
     acceptedKey = keySetting.value
   }
 
   const isLicensed = !!acceptedKey
   const inTrialWindow = isWithinTrial(firstUseAt)
-
   const daysUsed = firstUseAt ? getDaysSince(firstUseAt) : 0
   const daysRemaining = Math.max(0, TRIAL_DAYS - daysUsed)
 
@@ -119,5 +110,6 @@ export async function getLicenseStatus(): Promise<LicenseStatusResponse> {
     inTrial: inTrialWindow && !isLicensed,
     isLicensed,
     acceptedKey: isLicensed ? acceptedKey : null,
+    mode,
   }
 }

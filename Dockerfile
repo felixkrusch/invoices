@@ -34,7 +34,7 @@ COPY --from=build /app/invoices/package.json ./package.json
 COPY --from=build /app/invoices/next.config.ts ./next.config.ts
 COPY --from=build /app/invoices/compose.yaml ./compose.yaml
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh && mkdir -p .data/files .data/backups uploads logs backups
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION

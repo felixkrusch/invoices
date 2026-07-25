@@ -17,6 +17,7 @@ export const API_ACCESS_POLICIES: ApiAccessPolicy[] = [
   { prefix: '/api/webhooks/stripe', access: 'signed-webhook', description: 'Stripe webhooks' },
   { prefix: '/api/webhooks/paypal', access: 'signed-webhook', description: 'PayPal webhooks' },
   { prefix: '/api/jobs/run', access: 'signed-webhook', methods: ['POST'], description: 'Job runner' },
+  { prefix: '/api/backup/', access: 'admin', description: 'Full backup export and restore' },
   { prefix: '/api/admin/', access: 'admin', description: 'Administrative operations' },
   { prefix: '/api/users', access: 'admin', description: 'User and role management' },
   { prefix: '/api/settings', access: 'admin', methods: ['POST', 'PUT', 'PATCH', 'DELETE'], description: 'Company settings mutations' },

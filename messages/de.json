@@ -1,13 +1,13 @@
 {
   "app": {
-    "title": "entrytwo",
-    "subtitle": "KI-Buchhalter • Phase 0/1",
+    "title": "invoices",
+    "subtitle": "Kontakte & Rechnungen",
     "chat": {
-      "subtitle": "KI-Buchhalter • Phase 0/1",
-      "welcome": "Hallo! Ich bin Trillion, dein KI-Buchhalter. Wie kann ich helfen?",
-      "placeholder": "",
+      "subtitle": "Kontakte & Rechnungen",
+      "welcome": "Hallo — ich helfe bei Rechnungen und Kontakten.",
+      "placeholder": "Rechnung entwerfen oder Kontakt anlegen…",
       "thinking": "Denke nach…",
-      "createEntry": "Journalbuchung erstellen →",
+      "createEntry": "Zur Rechnung →",
       "reviewReversal": "Storno prüfen →",
       "reviewAndConfirm": "Prüfen & bestätigen →",
       "usedRealFeedRate": "Verwende echten Kurs aus früherem Feed für {merchant}.",
@@ -396,9 +396,10 @@
       "settings": "Einstellungen",
       "license": "Lizenz",
       "trialDays": "Test: noch {days} Tage",
-      "trialTitle": "Lizenz für entrytwo holen",
+      "trialTitle": "Lizenz holen",
       "signOut": "Abmelden",
-      "upload": "Hochladen"
+      "upload": "Hochladen",
+      "chat": "Chat"
     },
     "shell": {
       "checkingSetup": "Setup wird geprüft…",
@@ -464,7 +465,10 @@
       "contactsZip": "PLZ",
       "contactsCountry": "Land",
       "contactsWebsite": "Website",
-      "contactsSave": "Speichern"
+      "contactsSave": "Speichern",
+      "invoicing": "Rechnungen",
+      "contacts": "Kontakte",
+      "chat": "Chat"
     },
     "adminNav": {
       "section": "Admin",

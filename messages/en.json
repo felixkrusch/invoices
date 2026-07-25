@@ -1,13 +1,13 @@
 {
   "app": {
-    "title": "entrytwo",
-    "subtitle": "AI Accountant • Phase 0/1",
+    "title": "invoices",
+    "subtitle": "Contacts & invoicing",
     "chat": {
-      "subtitle": "AI Accountant • Phase 0/1",
-      "welcome": "Hello! I am Trillion your AI accountant? How can I help you?",
-      "placeholder": "",
+      "subtitle": "Contacts & invoicing",
+      "welcome": "Hi — I can help draft invoices and manage contacts.",
+      "placeholder": "Draft an invoice or add a contact…",
       "thinking": "Thinking...",
-      "createEntry": "Create journal entry →",
+      "createEntry": "Open invoicing →",
       "reviewReversal": "Review reversal →",
       "reviewAndConfirm": "Review & Confirm →",
       "usedRealFeedRate": "Using real rate from previous feed for {merchant}.",
@@ -396,9 +396,10 @@
       "settings": "Settings",
       "license": "License",
       "trialDays": "Trial: {days} days left",
-      "trialTitle": "Get a license for entrytwo",
+      "trialTitle": "Get a license",
       "signOut": "Sign out",
-      "upload": "Upload"
+      "upload": "Upload",
+      "chat": "Chat"
     },
     "shell": {
       "checkingSetup": "Checking setup...",
@@ -464,7 +465,10 @@
       "contactsZip": "ZIP",
       "contactsCountry": "Country",
       "contactsWebsite": "Website",
-      "contactsSave": "Save"
+      "contactsSave": "Save",
+      "invoicing": "Invoicing",
+      "contacts": "Contacts",
+      "chat": "Chat"
     },
     "adminNav": {
       "section": "Admin",

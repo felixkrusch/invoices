@@ -1,6 +1,6 @@
 services:
-  entrytwo:
-    image: entrytwo
+  invoices:
+    image: invoices
     build:
       context: .
       dockerfile: ./Dockerfile
