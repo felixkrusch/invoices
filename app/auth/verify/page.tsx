@@ -9,7 +9,7 @@ export default function VerifyRequestPage() {
   return (
     <div className="flex h-screen items-center justify-center bg-zinc-900 text-white">
       <div className="w-80 text-center space-y-4">
-        <img src="" alt="invoices" className="h-8 w-auto mx-auto mb-2" />
+        <img src="/invoices-logo.svg" alt="invoices" className="h-8 w-auto mx-auto mb-2" />
         <h1 className="text-xl mb-2">{t('checkEmail')}</h1>
         <p className="text-zinc-400">{t('verifyBody')}</p>
         <p className="text-xs text-zinc-500">{t('magicHint')}</p>

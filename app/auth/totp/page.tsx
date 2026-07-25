@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 
 export default function TotpChallengePage() {
   const [value, setValue] = useState('')
@@ -33,7 +32,7 @@ export default function TotpChallengePage() {
   return (
     <div className="flex h-screen items-center justify-center bg-zinc-900 p-4 text-white">
       <form onSubmit={verify} className="w-full max-w-xs space-y-4 rounded-lg border border-zinc-800 bg-zinc-950 p-5">
-        <Image src="" alt="invoices" width={128} height={32} className="mx-auto h-8 w-auto" />
+        <img src="/invoices-logo.svg" alt="invoices" className="mx-auto h-8 w-auto" />
         <div>
           <h1 className="text-lg font-semibold">Two-factor verification</h1>
           <p className="mt-1 text-xs text-zinc-400">{useRecoveryCode ? 'Enter one of your one-time recovery codes.' : 'Enter the six-digit code from your authenticator app.'}</p>

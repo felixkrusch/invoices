@@ -96,7 +96,7 @@ export default function TopBar({ showSettings = false, onOpenLicenseModal }: Top
     <div className="h-11 border-b border-zinc-800 bg-zinc-950 flex items-center px-4 justify-between shrink-0">
       <div className="flex items-center gap-2">
         <Link href="/app?view=invoicing" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <span className="font-semibold text-sm tracking-tight text-zinc-100">invoices</span>
+          <img src="/invoices-logo.svg" alt="invoices" className="h-5 w-auto" />
         </Link>
 
         {showTrialButton && (
