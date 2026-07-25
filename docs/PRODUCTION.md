@@ -25,7 +25,6 @@ Copy `.env.example` → `.env` and fill all required values.
 | `AUTH_URL` | `https://your.domain` |
 | `AUTH_TRUST_HOST` | `true` behind reverse proxy |
 | `SMTP_*` | Magic link + invoice email |
-| `LICENSE_MODE` | `open` for private installs (default) |
 | `UPDATER_TOKEN` | Required by Docker entrypoint for `server` |
 
 At least one sign-in method: full SMTP and/or Google and/or Microsoft OAuth.

@@ -25,10 +25,10 @@ See [PRODUCTION.md](./PRODUCTION.md).
 
 ## Environment
 
-See `.env.example`. Defaults:
+See `.env.example`.
 
-- `LICENSE_MODE=open` — no trial paywall (private installs)
-- Set `LICENSE_MODE=trial` only if you want the 30-day gate
+Licensing: **30-day trial** from first use, then activate a key (master key or `LICENSE_VERIFY_URL`). Same model as entrytwo. Defaults:
+
 
 ## Worker
 

@@ -19,7 +19,6 @@ services:
       - APP_IMAGE=${APP_IMAGE:-invoices:latest}
       - COMPOSE_FILE=/app/invoices/compose.yaml
       - UPDATE_SERVICE=app
-      - LICENSE_MODE=${LICENSE_MODE:-open}
       - JOB_RUNNER_URL=http://app:3000
       # Only set UPDATER_URL when running with --profile updater
       - UPDATER_URL=${UPDATER_URL:-}
@@ -50,7 +49,6 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/invoices
       - JOB_RUNNER_URL=http://app:3000
-      - LICENSE_MODE=${LICENSE_MODE:-open}
     volumes:
       - app_data:/app/invoices/.data
     depends_on:

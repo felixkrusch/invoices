@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       jobs: { pending: jobsPending, deadLetter: jobsDead },
       version: process.env.APP_VERSION || process.env.npm_package_version || 'unknown',
       product: 'invoices',
-      licenseMode: process.env.LICENSE_MODE || 'open',
+      license: 'trial-or-key',
       requestId,
       ...(missingProdSecrets.length ? { missingProdSecrets } : {}),
     }

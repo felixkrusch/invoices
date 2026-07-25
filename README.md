@@ -32,4 +32,4 @@ Next.js 16 · React 19 · Prisma 7 · PostgreSQL · Auth.js · next-intl · AI S
 
 ## License
 
-Private / TBD. Default install mode is open (no trial).
+Private / TBD. 30-day trial, then license key (same model as entrytwo).

@@ -2,12 +2,18 @@ import { describe, expect, it } from 'vitest'
 import { getApiAccessPolicy, isRoleAllowed } from '@/lib/apiAccessPolicy'
 import { ActionType, isSafeAutonomous } from '@/lib/chat/intent'
 import { BACKUP_EXTENSION, BACKUP_FORMAT, BACKUP_TABLES } from '@/lib/backup'
-import { licenseMode } from '@/lib/license'
+import { MASTER_LICENSE_KEY, TRIAL_DAYS, isWithinTrial, verifyLicenseKey } from '@/lib/license'
 
 describe('product surface', () => {
-  it('defaults license mode to open', () => {
-    delete process.env.LICENSE_MODE
-    expect(licenseMode()).toBe('open')
+  it('uses entrytwo-style trial constants', () => {
+    expect(TRIAL_DAYS).toBe(30)
+    expect(MASTER_LICENSE_KEY.length).toBeGreaterThan(10)
+    expect(isWithinTrial(null)).toBe(true)
+  })
+
+  it('accepts master license key', async () => {
+    expect(await verifyLicenseKey(MASTER_LICENSE_KEY)).toBe(true)
+    expect(await verifyLicenseKey('not-a-real-key')).toBe(false)
   })
 
   it('gates backup and chat correctly', () => {

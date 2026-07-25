@@ -27,18 +27,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid license key' }, { status: 400 })
     }
 
-    // Persist the accepted key
     await prisma.setting.upsert({
       where: { key: 'license.acceptedKey' },
       update: { value: { value: key } },
       create: { key: 'license.acceptedKey', value: { value: key } },
     })
 
-    // Audit the successful activation (matches patterns used for TOTP, updates, settings, etc.)
-.catch(() => {})
-
     return NextResponse.json({ success: true })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'Failed to activate license' }, { status: 500 })
   }
 }

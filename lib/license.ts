@@ -1,23 +1,22 @@
 import { prisma } from '@/lib/prisma'
 
-/**
- * LICENSE_MODE:
- * - open (default for private friend installs): no trial gate; always licensed
- * - trial: 30-day trial + optional key activation via LICENSE_VERIFY_URL / MASTER_LICENSE_KEY
- */
-export function licenseMode(): 'open' | 'trial' {
-  const raw = (process.env.LICENSE_MODE || 'open').toLowerCase().trim()
-  return raw === 'trial' ? 'trial' : 'open'
-}
-
-export const MASTER_LICENSE_KEY = process.env.MASTER_LICENSE_KEY || ''
+/** Same master unlock key as entrytwo (dev / support bypass). */
+export const MASTER_LICENSE_KEY = 'FCKGW-RHQQ2-YXRKT-8TG6W-2B7Q8'
 
 export const TRIAL_DAYS = 30
+
+export interface LicenseStatus {
+  isLicensed: boolean
+  daysRemaining: number | null
+  firstUseAt: string | null
+  acceptedKey?: string | null
+}
 
 export function getDaysSince(date: Date | string): number {
   const start = typeof date === 'string' ? new Date(date) : date
   const now = new Date()
-  return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  const diffMs = now.getTime() - start.getTime()
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
 }
 
 export function isWithinTrial(firstUseAt: string | null | undefined): boolean {
@@ -27,8 +26,10 @@ export function isWithinTrial(firstUseAt: string | null | undefined): boolean {
 
 export async function verifyLicenseKey(key: string): Promise<boolean> {
   if (!key) return false
-  if (MASTER_LICENSE_KEY && key === MASTER_LICENSE_KEY) return true
+  if (key === MASTER_LICENSE_KEY) return true
 
+  // "Verify once, trust forever" — only called from /api/license/activate.
+  // Runtime uses stored license.acceptedKey only.
   const verifyUrl = process.env.LICENSE_VERIFY_URL
   if (verifyUrl) {
     try {
@@ -46,9 +47,10 @@ export async function verifyLicenseKey(key: string): Promise<boolean> {
         return !!data.valid
       }
     } catch {
-      // fall through
+      // network error → only master key works
     }
   }
+
   return false
 }
 
@@ -58,20 +60,20 @@ export interface LicenseStatusResponse {
   inTrial: boolean
   isLicensed: boolean
   acceptedKey: string | null
-  mode: 'open' | 'trial'
 }
 
 export async function getLicenseStatus(): Promise<LicenseStatusResponse> {
-  const mode = licenseMode()
-  if (mode === 'open') {
-    return {
-      firstUseAt: null,
-      daysRemaining: TRIAL_DAYS,
-      inTrial: false,
-      isLicensed: true,
-      acceptedKey: 'open',
-      mode,
-    }
+  // Clear legacy "open mode" fake acceptance from earlier invoices builds
+  const keySetting = await prisma.setting.findUnique({ where: { key: 'license.acceptedKey' } })
+  let acceptedKey: string | null = null
+  if (keySetting?.value && typeof keySetting.value === 'object' && keySetting.value !== null && 'value' in keySetting.value) {
+    acceptedKey = (keySetting.value as { value?: string }).value || null
+  } else if (typeof keySetting?.value === 'string') {
+    acceptedKey = keySetting.value
+  }
+  if (acceptedKey === 'open') {
+    await prisma.setting.delete({ where: { key: 'license.acceptedKey' } }).catch(() => {})
+    acceptedKey = null
   }
 
   const firstUseSetting = await prisma.setting.findUnique({ where: { key: 'license.firstUseAt' } })
@@ -91,14 +93,6 @@ export async function getLicenseStatus(): Promise<LicenseStatusResponse> {
     })
   }
 
-  let acceptedKey: string | null = null
-  const keySetting = await prisma.setting.findUnique({ where: { key: 'license.acceptedKey' } })
-  if (keySetting?.value && typeof keySetting.value === 'object' && keySetting.value !== null && 'value' in keySetting.value) {
-    acceptedKey = (keySetting.value as { value?: string }).value || null
-  } else if (typeof keySetting?.value === 'string') {
-    acceptedKey = keySetting.value
-  }
-
   const isLicensed = !!acceptedKey
   const inTrialWindow = isWithinTrial(firstUseAt)
   const daysUsed = firstUseAt ? getDaysSince(firstUseAt) : 0
@@ -110,6 +104,5 @@ export async function getLicenseStatus(): Promise<LicenseStatusResponse> {
     inTrial: inTrialWindow && !isLicensed,
     isLicensed,
     acceptedKey: isLicensed ? acceptedKey : null,
-    mode,
   }
 }
