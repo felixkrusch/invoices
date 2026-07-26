@@ -30,14 +30,14 @@ export const ContactParams = z.object({
 export const InvoiceDraftParams = z.object({
   contactName: z.string().optional(),
   contactId: z.string().optional(),
-  description: z.string(),
-  amount: z.number().positive().optional(),
+  description: z.string().optional().default('Services'),
+  amount: z.union([z.number(), z.string()]).optional(),
   currency: z.string().optional(),
   lines: z.array(z.object({
-    description: z.string(),
-    quantity: z.number().positive().optional(),
-    unitPrice: z.number(),
-    taxRateId: z.string().optional(),
+    description: z.string().optional(),
+    quantity: z.union([z.number(), z.string()]).optional(),
+    unitPrice: z.union([z.number(), z.string()]).optional(),
+    taxRateId: z.string().optional().nullable(),
   })).optional(),
 })
 

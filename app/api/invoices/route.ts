@@ -111,27 +111,48 @@ export async function POST(request: Request) {
     const finalIssueDate = issueDate ? new Date(issueDate) : now
     const finalDueDate = dueDate ? new Date(dueDate) : new Date(now.getTime() + dueDays * 24 * 60 * 60 * 1000)
 
+    // PDF language: explicit body → contact preferred → company default → en
+    let language = parsed.data.language as string | undefined
+    if (!language) {
+      const [contact, langSetting] = await Promise.all([
+        prisma.contact.findUnique({ where: { id: contactId }, select: { preferredLanguage: true } }),
+        prisma.setting.findUnique({ where: { key: 'company.defaultLanguage' } }),
+      ])
+      const companyLang =
+        langSetting?.value && typeof langSetting.value === 'object' && langSetting.value !== null && 'value' in langSetting.value
+          ? String((langSetting.value as { value?: string }).value || '')
+          : typeof langSetting?.value === 'string'
+            ? langSetting.value
+            : ''
+      const preferred = contact?.preferredLanguage || companyLang || 'en'
+      language = preferred === 'de' ? 'de' : 'en'
+    }
+
     const taxRateIds = Array.from(new Set(lines.map(l => l.taxRateId).filter((id): id is string => !!id)))
     const taxRates = taxRateIds.length
       ? await prisma.taxRate.findMany({ where: { id: { in: taxRateIds } } })
       : []
     const rateMap = new Map(taxRates.map(r => [r.id, Number(r.rate)]))
 
+    const money = (n: number) => Math.round((Number(n) + Number.EPSILON) * 100) / 100
     let subtotal = 0
     let taxAmount = 0
     const enrichedLines = lines.map(line => {
-      const net = line.quantity * line.unitPrice
+      const unitPrice = money(line.unitPrice)
+      const quantity = line.quantity
+      const net = money(quantity * unitPrice)
       const rate = line.taxRateId ? rateMap.get(line.taxRateId) || 0 : 0
-      const tax = net * rate
-      subtotal += net
-      taxAmount += tax
+      const tax = money(net * rate)
+      subtotal = money(subtotal + net)
+      taxAmount = money(taxAmount + tax)
       return {
         ...line,
+        unitPrice,
         lineTotal: net,
         taxAmount: tax,
       }
     })
-    const total = subtotal + taxAmount
+    const total = money(subtotal + taxAmount)
 
     const invoice = await prisma.$transaction(async (tx) => {
       return tx.invoice.create({
@@ -140,7 +161,7 @@ export async function POST(request: Request) {
           contactId,
           status,
           currency,
-          language: parsed.data.language || 'en',
+          language,
           subtotal,
           taxAmount,
           total,

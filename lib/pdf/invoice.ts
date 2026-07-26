@@ -39,9 +39,39 @@ export async function generateInvoicePDF(invoiceId: string): Promise<Buffer> {
   const routing = text(bank.routing || bank.transit)
   const accountNumber = text(bank.accountNumber || bank.account)
   const currency = (invoice.currency || 'EUR').toUpperCase()
+  const german = (invoice.language || 'en').toLowerCase().startsWith('de')
+  const locale = german ? 'de' : 'en'
+  const t = {
+    title: german ? 'RECHNUNG' : 'INVOICE',
+    billTo: german ? 'Rechnungsempfänger' : 'Bill to',
+    taxId: german ? 'USt-IdNr.' : 'Tax ID',
+    registration: german ? 'Registernr.' : 'Registration',
+    dueLine: (total: string, due: string) =>
+      german ? `${total} fällig am ${due}` : `${total} due ${due}`,
+    description: german ? 'Beschreibung' : 'Description',
+    quantity: german ? 'Menge' : 'Quantity',
+    unitPrice: german ? 'Einzelpreis' : 'Unit price',
+    amount: german ? 'Betrag' : 'Amount',
+    subtotal: german ? 'Zwischensumme' : 'Subtotal',
+    tax: german ? 'MwSt.' : 'Tax',
+    total: german ? 'Summe' : 'Total',
+    amountDue: german ? 'Fälliger Betrag' : 'Amount due',
+    paymentDetails: german ? 'ZAHLUNGSINFORMATIONEN' : 'PAYMENT DETAILS',
+    bank: german ? 'Bank' : 'Bank',
+    reference: german ? 'Verwendungszweck' : 'Reference',
+    routing: german ? 'Bankleitzahl' : 'Routing',
+    account: german ? 'Konto' : 'Account',
+    notes: german ? 'NOTIZEN' : 'NOTES',
+    status: (s: string) => {
+      const map: Record<string, string> = german
+        ? { DRAFT: 'ENTWURF', SENT: 'GESENDET', PAID: 'BEZAHLT', OVERDUE: 'ÜBERFÄLLIG', CANCELLED: 'STORNIERT' }
+        : { DRAFT: 'DRAFT', SENT: 'SENT', PAID: 'PAID', OVERDUE: 'OVERDUE', CANCELLED: 'CANCELLED' }
+      return map[s] || s
+    },
+  }
 
-  const money = new Intl.NumberFormat(invoice.language || 'en', { style: 'currency', currency })
-  const date = new Intl.DateTimeFormat(invoice.language || 'en', { year: 'numeric', month: 'short', day: '2-digit' })
+  const money = new Intl.NumberFormat(locale, { style: 'currency', currency })
+  const date = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: '2-digit' })
   const companyAddress = [
     text(address.street || address.addressStreet),
     text(address.addressLine2 || address.line2),
@@ -79,7 +109,7 @@ export async function generateInvoicePDF(invoiceId: string): Promise<Buffer> {
     }
   }
 
-  const doc = new PDFDocument({ size: 'A4', margin: 44, info: { Title: `Invoice ${invoice.invoiceNumber}`, Author: companyName } })
+  const doc = new PDFDocument({ size: 'A4', margin: 44, info: { Title: `${german ? 'Rechnung' : 'Invoice'} ${invoice.invoiceNumber}`, Author: companyName } })
   doc.registerFont('Geist', geistRegular)
   doc.registerFont('Geist-SemiBold', geistSemibold)
   const chunks: Buffer[] = []
@@ -103,34 +133,31 @@ export async function generateInvoicePDF(invoiceId: string): Promise<Buffer> {
     if (logoUrl) doc.image(logoUrl, left, 42, { fit: [132, 42] })
     else doc.font(bold).fontSize(15).fillColor(ink).text(companyName, left, 48, { width: 250 })
 
-    doc.font(bold).fontSize(25).fillColor(ink).text('INVOICE', 350, 40, { width: 201, align: 'right' })
+    doc.font(bold).fontSize(25).fillColor(ink).text(t.title, 350, 40, { width: 201, align: 'right' })
     doc.font(regular).fontSize(9).fillColor(muted).text(invoice.invoiceNumber, 350, 72, { width: 201, align: 'right' })
     doc.roundedRect(468, 89, 83, 20, 10).fill(invoice.status === 'PAID' ? '#dcfce7' : '#dbeafe')
-    doc.font(bold).fontSize(8).fillColor(invoice.status === 'PAID' ? '#166534' : '#1d4ed8').text(invoice.status, 468, 96, { width: 83, align: 'center' })
+    doc.font(bold).fontSize(8).fillColor(invoice.status === 'PAID' ? '#166534' : '#1d4ed8').text(t.status(invoice.status), 468, 96, { width: 83, align: 'center' })
 
-    const german = (invoice.language || 'en').toLowerCase().startsWith('de')
     doc.moveTo(left, 124).lineTo(right, 124).lineWidth(0.7).strokeColor(border).stroke()
     doc.font(bold).fontSize(9.5).fillColor(ink).text(companyName, left, 147, { width: 220 })
     doc.font(regular).fontSize(9.5).fillColor(ink)
     let sellerY = 166
     for (const line of companyAddress) { doc.text(line, left, sellerY, { width: 220 }); sellerY += 14 }
-    if (sellerTaxId) { doc.text(`${german ? 'USt-IdNr.' : 'Tax ID'} ${sellerTaxId}`, left, sellerY, { width: 220 }); sellerY += 14 }
-    if (registrationNumber) doc.text(`${german ? 'Registernr.' : 'Registration'} ${registrationNumber}`, left, sellerY, { width: 220 })
+    if (sellerTaxId) { doc.text(`${t.taxId} ${sellerTaxId}`, left, sellerY, { width: 220 }); sellerY += 14 }
+    if (registrationNumber) doc.text(`${t.registration} ${registrationNumber}`, left, sellerY, { width: 220 })
 
-    doc.font(bold).fontSize(9.5).fillColor(ink).text(german ? 'Rechnungsempfänger' : 'Bill to', 310, 147, { width: 241 })
+    doc.font(bold).fontSize(9.5).fillColor(ink).text(t.billTo, 310, 147, { width: 241 })
     doc.font(regular).fontSize(9.5).fillColor(ink)
     let customerY = 166
     doc.text(invoice.contact.name, 310, customerY, { width: 241 }); customerY += 14
     for (const line of customerAddress) { doc.text(line, 310, customerY, { width: 241 }); customerY += 14 }
     if (invoice.contact.email) { doc.text(invoice.contact.email, 310, customerY, { width: 241 }); customerY += 14 }
-    if (invoice.contact.taxId) doc.text(`${german ? 'USt-IdNr.' : 'Tax ID'} ${invoice.contact.taxId}`, 310, customerY, { width: 241 })
+    if (invoice.contact.taxId) doc.text(`${t.taxId} ${invoice.contact.taxId}`, 310, customerY, { width: 241 })
 
     const addressBottom = Math.max(sellerY, customerY)
     let y = Math.max(240, addressBottom + 30)
     doc.font(bold).fontSize(15).fillColor(ink).text(
-      german
-        ? `${money.format(Number(invoice.total))} fällig am ${date.format(invoice.dueDate)}`
-        : `${money.format(Number(invoice.total))} due ${date.format(invoice.dueDate)}`,
+      t.dueLine(money.format(Number(invoice.total)), date.format(invoice.dueDate)),
       left,
       y,
       { width: contentWidth },
@@ -138,10 +165,10 @@ export async function generateInvoicePDF(invoiceId: string): Promise<Buffer> {
     y += 40
     const drawTableHeader = () => {
       doc.font(regular).fontSize(7.5).fillColor(ink)
-      doc.text(german ? 'Beschreibung' : 'Description', left, y, { width: 290 })
-      doc.text(german ? 'Menge' : 'Quantity', 329, y, { width: 55, align: 'right' })
-      doc.text(german ? 'Preis pro Einheit' : 'Unit price', 393, y, { width: 90, align: 'right' })
-      doc.text(german ? 'Betrag' : 'Amount', 491, y, { width: 60, align: 'right' })
+      doc.text(t.description, left, y, { width: 290 })
+      doc.text(t.quantity, 329, y, { width: 55, align: 'right' })
+      doc.text(t.unitPrice, 393, y, { width: 90, align: 'right' })
+      doc.text(t.amount, 491, y, { width: 60, align: 'right' })
       y += 15
       doc.moveTo(left, y).lineTo(right, y).lineWidth(0.7).strokeColor(ink).stroke()
       y += 3
@@ -177,10 +204,10 @@ export async function generateInvoicePDF(invoiceId: string): Promise<Buffer> {
       doc.text(value, 448, y, { width: 103, align: 'right' })
       y += 16
     }
-    totalRow(german ? 'Zwischensumme' : 'Subtotal', money.format(subtotal))
-    if (taxAmount) totalRow(german ? 'Steuer' : 'Tax', money.format(taxAmount))
-    totalRow(german ? 'Summe' : 'Total', money.format(Number(invoice.total)))
-    totalRow(german ? 'Fälliger Betrag' : 'Amount due', money.format(Number(invoice.total)), true)
+    totalRow(t.subtotal, money.format(subtotal))
+    if (taxAmount) totalRow(t.tax, money.format(taxAmount))
+    totalRow(t.total, money.format(Number(invoice.total)))
+    totalRow(t.amountDue, money.format(Number(invoice.total)), true)
 
     // After the items table, check if the summary + payment block fits on the current page.
     // If not, start a clean new page for the footer section.
@@ -195,16 +222,23 @@ export async function generateInvoicePDF(invoiceId: string): Promise<Buffer> {
       doc.roundedRect(left, paymentY, contentWidth, qrUrl ? 105 : 82, 7).fill(panel)
       if (qrUrl) doc.image(qrUrl, left + 14, paymentY + 14, { width: 76, height: 76 })
       const paymentX = qrUrl ? left + 108 : left + 18
-      doc.font(bold).fontSize(9).fillColor(ink).text('PAYMENT DETAILS', paymentX, paymentY + 16)
+      doc.font(bold).fontSize(9).fillColor(ink).text(t.paymentDetails, paymentX, paymentY + 16)
       doc.font(regular).fontSize(8).fillColor(muted)
       let detailY = paymentY + 34
-      const details = [bankName && `Bank  ${bankName}`, iban && `IBAN  ${iban}`, bic && `BIC  ${bic}`, routing && `Routing  ${routing}`, accountNumber && `Account  ${accountNumber}`, `Reference  ${invoice.invoiceNumber}`].filter(Boolean) as string[]
+      const details = [
+        bankName && `${t.bank}  ${bankName}`,
+        iban && `IBAN  ${iban}`,
+        bic && `BIC  ${bic}`,
+        routing && `${t.routing}  ${routing}`,
+        accountNumber && `${t.account}  ${accountNumber}`,
+        `${t.reference}  ${invoice.invoiceNumber}`,
+      ].filter(Boolean) as string[]
       details.forEach(item => { doc.text(item, paymentX, detailY, { width: right - paymentX - 14 }); detailY += 11 })
       paymentY += qrUrl ? 119 : 96
     }
 
     if (invoice.notes) {
-      doc.font(bold).fontSize(8).fillColor(ink).text('NOTES', left, paymentY)
+      doc.font(bold).fontSize(8).fillColor(ink).text(t.notes, left, paymentY)
       doc.font(regular).fontSize(8).fillColor(muted).text(invoice.notes, left, paymentY + 15, { width: contentWidth })
     }
 

@@ -297,13 +297,16 @@
       "scheduleRecurring": "Nach Plan wiederholen (z. B. monatliche Miete)"
     },
     "toasts": {
-      "entryCreated": "Journalbuchung erstellt",
-      "entryCreatedFromChat": "Journalbuchung aus Chat-Vorschlag erstellt",
+      "entryCreated": "Buchung erstellt",
+      "entryCreatedFromChat": "Buchung aus Chat-Vorschlag erstellt",
       "reversalPosted": "Storno aus Chat-Vorschlag gebucht",
       "entryReversed": "Buchung storniert",
       "chatError": "Chat-Dienst nicht erreichbar, lokaler Fallback.",
+      "invoiceDraftReady": "Rechnungsentwurf bereit",
+      "invoiceDraftCreated": "Rechnungsentwurf erstellt",
+      "licenseActivated": "Lizenz aktiviert",
       "summary": {
-        "viewAll": "Alle im Journal →"
+        "viewAll": "Alle im Journal anzeigen →"
       }
     },
     "auth": {

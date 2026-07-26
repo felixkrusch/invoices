@@ -6,18 +6,10 @@ import { useTranslations } from 'next-intl'
 import toast from 'react-hot-toast'
 import TopBar from './TopBar'
 import InvoicingPanel from './InvoicingPanel'
+import ContactsPanel from './ContactsPanel'
 import LicenseGate from './LicenseGate'
 import LicenseModal from './LicenseModal'
 import { ErrorBoundary } from '../components/ErrorBoundary'
-
-function ContactsEmbed() {
-  const [ContactsPage, setContactsPage] = useState<React.ComponentType | null>(null)
-  useEffect(() => {
-    import('@/app/contacts/page').then(m => setContactsPage(() => m.default)).catch(() => undefined)
-  }, [])
-  if (!ContactsPage) return <div className="p-6 text-sm text-zinc-500">Loading contacts…</div>
-  return <ContactsPage />
-}
 
 function AppContent({ children }: { children: ReactNode }) {
   const t = useTranslations('app.toasts')
@@ -140,7 +132,7 @@ function AppContent({ children }: { children: ReactNode }) {
         <div className="hidden min-h-0 flex-1 overflow-auto bg-zinc-900 p-4 md:block md:p-6">
           <div className="mx-auto max-w-5xl space-y-6">
             <ErrorBoundary>
-              {view === 'contacts' ? <ContactsEmbed /> : <InvoicingPanel />}
+              {view === 'contacts' ? <ContactsPanel /> : <InvoicingPanel />}
             </ErrorBoundary>
           </div>
         </div>

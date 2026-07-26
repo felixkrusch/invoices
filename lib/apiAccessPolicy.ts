@@ -23,6 +23,7 @@ export const API_ACCESS_POLICIES: ApiAccessPolicy[] = [
   { prefix: '/api/settings', access: 'admin', methods: ['POST', 'PUT', 'PATCH', 'DELETE'], description: 'Company settings mutations' },
   { prefix: '/api/settings', access: 'authenticated', methods: ['GET'], description: 'Company settings' },
   { prefix: '/api/llm-config', access: 'admin', description: 'LLM configuration' },
+  { prefix: '/api/llm/status', access: 'authenticated', methods: ['GET'], description: 'LLM connection status for chat indicator' },
   { prefix: '/api/chat', access: 'accountant', description: 'AI assistant' },
   { prefix: '/api/tax-rates', access: 'admin', methods: ['POST', 'PUT', 'PATCH', 'DELETE'], description: 'Tax configuration mutations' },
   { prefix: '/api/invoices', access: 'accountant', methods: ['POST', 'PUT', 'PATCH', 'DELETE'], description: 'Invoice mutations' },

@@ -41,7 +41,15 @@ function tryExtractAction(text: string): Extracted | null {
   return null
 }
 
-function buildSystemPrompt(company: Awaited<ReturnType<typeof getCompanyProfile>>, chatLocked: boolean) {
+function buildSystemPrompt(
+  company: Awaited<ReturnType<typeof getCompanyProfile>>,
+  chatLocked: boolean,
+  taxRatesInfo?: string,
+) {
+  const taxSection = taxRatesInfo
+    ? `\nAvailable tax rates (use the exact UUID as taxRateId on invoice lines):\n${taxRatesInfo}\n`
+    : '\n(No tax rates configured yet.)\n'
+
   return `You are the invoicing assistant for this company.
 
 Company: ${company.name || 'Company'}
@@ -51,6 +59,11 @@ Default language: ${company.defaultLanguage || 'en'}
 You help with contacts and invoices only. You cannot do bookkeeping, journals, bank feeds, or reports.
 
 ${chatLocked ? 'CHAT IS LOCKED. Propose actions; do not execute without confirmation.' : 'You may create contacts and invoice drafts when the user clearly asks.'}
+${taxSection}
+Tax / invoice amount rules:
+- "3000€" without inkl/brutto → treat as net unit price; attach the matching taxRateId (e.g. 19% MwSt UUID) so tax is added on top.
+- "3000€ inkl MwSt" / "brutto" / "incl. VAT" → amount is GROSS. Pick the taxRateId for the stated rate (or standard rate), set unitPrice = gross / (1 + rate) (net), quantity usually 1. Do not invent taxRateId values — only use UUIDs from the list above.
+- Never refuse solely because you need a tax UUID if the list above is present; pick the closest matching rate and create the draft.
 
 When you need structured instructions, call get_skill with one of:
 - create-contact
@@ -127,6 +140,20 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Same as entrytwo: inject real tax rate UUIDs so the model can set taxRateId
+    let taxRatesInfo = ''
+    try {
+      const rates = await prisma.taxRate.findMany({
+        select: { id: true, jurisdiction: true, name: true, rate: true },
+        orderBy: [{ jurisdiction: 'asc' }, { rate: 'desc' }],
+      })
+      if (rates.length) {
+        taxRatesInfo = rates
+          .map(r => `${r.id}  ${r.jurisdiction} ${r.name} (${(Number(r.rate) * 100).toFixed(0)}%)`)
+          .join('\n')
+      }
+    } catch { /* ignore */ }
+
     // Confirmation path: execute previously proposed action
     if (approved && approvedAction?.action) {
       const result = await executeAction(approvedAction, session.user.id, company)
@@ -152,7 +179,7 @@ export async function POST(request: NextRequest) {
 
     const result = await generateText({
       model,
-      system: buildSystemPrompt(company, chatLocked),
+      system: buildSystemPrompt(company, chatLocked, taxRatesInfo || undefined),
       messages: modelMessages,
       tools: {
         get_skill: tool({
@@ -221,8 +248,12 @@ export async function POST(request: NextRequest) {
     if (error instanceof ChatThreadAccessError) {
       return NextResponse.json({ error: error.message, requestId }, { status: 404 })
     }
-    logger.error('chat failed', { error: error instanceof Error ? error.message : String(error), requestId })
-    return NextResponse.json({ error: 'Chat failed', requestId }, { status: 500 })
+    const message = error instanceof Error ? error.message : String(error)
+    logger.error('chat failed', { error: message, requestId })
+    return NextResponse.json({
+      error: process.env.NODE_ENV === 'production' ? 'Chat failed' : message,
+      requestId,
+    }, { status: 500 })
   }
 }
 
@@ -296,17 +327,25 @@ async function executeAction(
     if (!v.ok || !v.data) return { response: v.error || 'Invalid invoice draft', proposed: false }
     const d = v.data
     let contactId = d.contactId
+    let contactName = d.contactName
     if (!contactId && d.contactName) {
       const existing = await prisma.contact.findFirst({
         where: { name: { equals: d.contactName, mode: 'insensitive' } },
       })
-      if (existing) contactId = existing.id
-      else {
+      if (existing) {
+        contactId = existing.id
+        contactName = existing.name
+      } else {
         const c = await prisma.contact.create({
           data: { name: d.contactName, type: 'CUSTOMER', currency: d.currency || company.baseCurrency },
         })
         contactId = c.id
+        contactName = c.name
       }
+    }
+    if (contactId && !contactName) {
+      const c = await prisma.contact.findUnique({ where: { id: contactId }, select: { name: true } })
+      contactName = c?.name
     }
     if (!contactId) {
       return {
@@ -319,16 +358,100 @@ async function executeAction(
         },
       }
     }
+
+    const money = (n: number) => Math.round((Number(n) + Number.EPSILON) * 100) / 100
+    const currency = (d.currency || company.baseCurrency || 'EUR').toUpperCase()
+    const rawLines = Array.isArray(d.lines) && d.lines.length
+      ? d.lines
+      : [{
+          description: d.description,
+          quantity: 1,
+          unitPrice: d.amount ?? 0,
+        }]
+
+    const taxRateIds = Array.from(
+      new Set(
+        rawLines
+          .map(l => (typeof l.taxRateId === 'string' ? l.taxRateId : ''))
+          .filter((id): id is string => !!id),
+      ),
+    )
+    const taxRates = taxRateIds.length
+      ? await prisma.taxRate.findMany({ where: { id: { in: taxRateIds } } })
+      : []
+    const rateMap = new Map(taxRates.map(r => [r.id, Number(r.rate)]))
+
+    let subtotal = 0
+    let taxAmount = 0
+    const enriched = rawLines.map(l => {
+      const quantity = Number(l.quantity) > 0 ? Number(l.quantity) : 1
+      const unitPrice = money(Number(l.unitPrice) || 0)
+      const net = money(quantity * unitPrice)
+      const rate = l.taxRateId ? rateMap.get(l.taxRateId) || 0 : 0
+      const tax = money(net * rate)
+      subtotal = money(subtotal + net)
+      taxAmount = money(taxAmount + tax)
+      return {
+        description: (l.description || d.description || 'Services').toString().slice(0, 500),
+        quantity,
+        unitPrice,
+        taxRateId: l.taxRateId && rateMap.has(l.taxRateId) ? l.taxRateId : null,
+        lineTotal: net,
+        taxAmount: tax,
+      }
+    })
+    const total = money(subtotal + taxAmount)
+    const now = new Date()
+
+    const invoice = await prisma.$transaction(async (tx) => {
+      const year = now.getFullYear()
+      const prefix = `INV-${year}-`
+      await tx.$queryRaw<Array<{ locked: boolean }>>`SELECT pg_advisory_xact_lock(hashtext(${`invoice-number:${year}`})) IS NULL AS locked`
+      const latest = await tx.invoice.findFirst({
+        where: { invoiceNumber: { startsWith: prefix } },
+        orderBy: { invoiceNumber: 'desc' },
+        select: { invoiceNumber: true },
+      })
+      let next = 1
+      if (latest?.invoiceNumber) {
+        const n = parseInt(latest.invoiceNumber.replace(prefix, ''), 10)
+        if (!isNaN(n)) next = n + 1
+      }
+      const invoiceNumber = `${prefix}${String(next).padStart(4, '0')}`
+
+      return tx.invoice.create({
+        data: {
+          invoiceNumber,
+          contactId: contactId!,
+          status: 'DRAFT',
+          currency,
+          language: company.defaultLanguage === 'de' ? 'de' : 'en',
+          subtotal,
+          taxAmount,
+          total,
+          issueDate: now,
+          dueDate: new Date(now.getTime() + 30 * 86400000),
+          notes: d.description || null,
+          lines: {
+            create: enriched.map(l => ({
+              description: l.description,
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              taxRateId: l.taxRateId,
+              lineTotal: l.lineTotal,
+              taxAmount: l.taxAmount,
+            })),
+          },
+        },
+      })
+    })
+
     return {
-      response: `Ready to draft an invoice for ${d.contactName || 'contact'}: ${d.description}${d.amount != null ? ` (${d.amount} ${d.currency || company.baseCurrency})` : ''}`,
-      createInvoice: {
-        contactName: d.contactName,
-        amount: d.amount,
-        description: d.description,
-        currency: d.currency || company.baseCurrency,
-      },
-      action: 'create_invoice',
-      navigate: { label: 'Open invoicing', href: '/app?view=invoicing' },
+      response: `Created invoice draft: ${invoice.invoiceNumber}`,
+      executed: true,
+      entityId: invoice.id,
+      createdAutonomously: true,
+      navigate: { label: 'View invoices', href: '/app?view=invoicing' },
     }
   }
 

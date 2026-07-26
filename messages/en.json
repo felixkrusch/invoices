@@ -302,6 +302,9 @@
       "reversalPosted": "Reversal posted from chat suggestion",
       "entryReversed": "Entry reversed",
       "chatError": "Chat service unavailable, using local fallback.",
+      "invoiceDraftReady": "Invoice draft ready",
+      "invoiceDraftCreated": "Invoice draft created",
+      "licenseActivated": "License activated",
       "summary": {
         "viewAll": "View all in Journal →"
       }

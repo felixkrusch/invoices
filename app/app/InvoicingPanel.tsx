@@ -353,22 +353,25 @@ export default function InvoicingPanel() {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail || {}
-      if (detail.contactName || detail.amount || detail.description) {
+      if (detail.contactName || detail.contactId || detail.amount || detail.description) {
         setShowCreate(true)
         setCreatedInvoiceId(null)
         setEditingInvoiceId(null)
-        // default dates on prefill
+        setExpandedId(null)
+        setExpandedData(null)
         const today = new Date().toISOString().slice(0, 10)
         setFormIssueDate(today)
         const due = new Date()
         due.setDate(due.getDate() + 30)
         setFormDueDate(due.toISOString().slice(0, 10))
         setTimeout(() => {
-          if (detail.contactName) {
+          if (detail.contactId) {
+            setNewContactId(String(detail.contactId))
+          } else if (detail.contactName) {
             const match = contacts.find(c => c.name.toLowerCase().includes(String(detail.contactName).toLowerCase()))
             if (match) setNewContactId(match.id)
           }
-          if (detail.amount) {
+          if (detail.amount != null && detail.amount !== '') {
             const amt = Number(detail.amount)
             setNewLines([{ description: detail.description || 'Services', quantity: 1, unitPrice: amt, taxRateId: taxRates[0]?.id || null }])
           } else if (detail.description) {
@@ -381,17 +384,43 @@ export default function InvoicingPanel() {
     return () => window.removeEventListener('prefill-invoice', handler)
   }, [contacts, taxRates])
 
+  const openInvoiceById = useCallback(async (id: string) => {
+    setShowCreate(false)
+    setEditingInvoiceId(null)
+    setSelectedInvoice(null)
+    try {
+      const res = await fetch(`/api/invoices/${id}`)
+      if (res.ok) {
+        const full = await res.json()
+        setExpandedId(id)
+        setExpandedData(full)
+      }
+    } catch { /* ignore */ }
+    void fetchInvoices()
+  }, [fetchInvoices])
+
   useEffect(() => {
     const openHandler = async (e: Event) => {
       const id = (e as CustomEvent).detail?.id
-      if (id) {
-        await loadInvoiceDetails(id)
-        void fetchInvoices()
-      }
+      if (id) await openInvoiceById(String(id))
     }
     window.addEventListener('open-invoice-details', openHandler)
     return () => window.removeEventListener('open-invoice-details', openHandler)
-  }, [loadInvoiceDetails, fetchInvoices])
+  }, [openInvoiceById])
+
+  // If chat navigated here after creating a draft, open it once the panel mounts
+  useEffect(() => {
+    const pending = (window as unknown as { __pendingInvoiceId?: string }).__pendingInvoiceId
+    if (!pending) return
+    delete (window as unknown as { __pendingInvoiceId?: string }).__pendingInvoiceId
+    void openInvoiceById(pending)
+  }, [openInvoiceById])
+
+  useEffect(() => {
+    const h = () => { void fetchInvoices(); void fetchRecurring() }
+    window.addEventListener('invoices-updated', h)
+    return () => window.removeEventListener('invoices-updated', h)
+  }, [fetchInvoices, fetchRecurring])
 
   useEffect(() => {
     if (createdInvoiceId && selectedInvoice && selectedInvoice.id !== createdInvoiceId) {
