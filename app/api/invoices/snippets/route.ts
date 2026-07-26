@@ -2,14 +2,6 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUser } from '@/lib/authz'
 
-const DEFAULT_SNIPPETS = [
-  { id: '1', name: 'Consulting', description: 'Professional consulting services', quantity: 1, unitPrice: 150 },
-  { id: '2', name: 'Web Dev', description: 'Website development', quantity: 20, unitPrice: 100 },
-  { id: '3', name: 'Design', description: 'Graphic design work', quantity: 10, unitPrice: 75 },
-  { id: '4', name: 'Hosting', description: 'Monthly hosting service', quantity: 1, unitPrice: 29 },
-  { id: '5', name: 'Support', description: 'Technical support (1hr)', quantity: 1, unitPrice: 85 },
-]
-
 export async function GET(request: Request) {
   if (!await requireUser()) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   try {
@@ -25,10 +17,7 @@ export async function GET(request: Request) {
     })
 
     if (rows.length === 0) {
-      if (kindFilter === 'text') {
-        return NextResponse.json({ snippets: [], source: 'default' })
-      }
-      return NextResponse.json({ snippets: DEFAULT_SNIPPETS.map(d => ({ ...d, kind: 'line' })), source: 'default' })
+      return NextResponse.json({ snippets: [], source: 'empty' })
     }
 
     let snippets = rows
@@ -71,11 +60,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ snippets, source: 'db' })
   } catch {
-    const kindFilter = new URL(request.url).searchParams.get('kind') || ''
-    if (kindFilter === 'text') {
-      return NextResponse.json({ snippets: [], source: 'default' })
-    }
-    return NextResponse.json({ snippets: DEFAULT_SNIPPETS.map(d => ({ ...d, kind: 'line' })), source: 'default' })
+    return NextResponse.json({ snippets: [], source: 'empty' })
   }
 }
 
@@ -137,5 +122,28 @@ export async function POST(request: Request) {
     }, { status: 201 })
   } catch {
     return NextResponse.json({ error: 'Failed to save snippet' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  if (!await requireUser(['ADMIN', 'ACCOUNTANT'])) {
+    return NextResponse.json({ error: 'Accountant access required' }, { status: 403 })
+  }
+  try {
+    const url = new URL(request.url)
+    const id = url.searchParams.get('id') || ''
+    if (!id) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 })
+    }
+
+    const existing = await prisma.template.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Snippet not found' }, { status: 404 })
+    }
+
+    await prisma.template.delete({ where: { id } })
+    return NextResponse.json({ success: true })
+  } catch {
+    return NextResponse.json({ error: 'Failed to delete snippet' }, { status: 500 })
   }
 }

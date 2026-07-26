@@ -223,6 +223,24 @@ export default function InvoicingPanel() {
     } catch {}
   }, [])
 
+  const deleteSnippet = useCallback(async (snippet: SavedSnippet, kind: 'line' | 'text') => {
+    if (!snippet.id) return
+    const ok = window.confirm(t('deleteSnippetConfirm', { name: snippet.name || 'snippet' }))
+    if (!ok) return
+    try {
+      const res = await fetch(`/api/invoices/snippets?id=${encodeURIComponent(snippet.id)}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error || 'Failed to delete snippet')
+        return
+      }
+      if (kind === 'text') await fetchTextSnippets()
+      else await fetchSnippets()
+    } catch {
+      alert('Failed to delete snippet')
+    }
+  }, [t, fetchSnippets, fetchTextSnippets])
+
   useEffect(() => {
     fetch('/api/payments/stripe/status').then(r => r.json()).then(d => setStripeEnabled(!!d.configured)).catch(() => {})
     fetch('/api/payments/paypal/status').then(r => r.json()).then(d => setPaypalEnabled(!!d.configured)).catch(() => {})
@@ -914,53 +932,81 @@ export default function InvoicingPanel() {
              </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs text-zinc-400">{t('lineItems')}</label>
-                <button type="button" onClick={addLine} className="text-xs text-emerald-400 hover:text-emerald-300">
-                  + Add Line
+              <div className="mb-1.5 grid grid-cols-[minmax(0,1fr)_5.5rem_7rem_7rem_auto] items-center gap-2 text-[11px] font-medium text-zinc-400">
+                <span>{t('lineItems')}</span>
+                <span className="text-center">{t('qty')}</span>
+                <span className="text-center">{t('price')}</span>
+                <span aria-hidden />
+                <button
+                  type="button"
+                  onClick={addLine}
+                  className="justify-self-end whitespace-nowrap text-right text-xs font-medium text-emerald-400 hover:text-emerald-300"
+                >
+                  {t('addLine')}
                 </button>
               </div>
-              <div className="space-y-2 max-h-60 overflow-y-auto">
+              <div className="max-h-60 space-y-2 overflow-y-auto">
                 {newLines.map((line, index) => (
-                  <div key={index} className="flex gap-2">
+                  <div key={index} className="grid grid-cols-[minmax(0,1fr)_5.5rem_7rem_7rem_auto] gap-2">
                     <input
                       type="text"
                       placeholder={t('descriptionPh')}
                       value={line.description}
                       onChange={e => updateLine(index, 'description', e.target.value)}
-                      className="flex-1 px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-sm"
+                      className="min-w-0 w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm"
+                      aria-label={t('description')}
                     />
                     <input
-                      type="number" min="1" value={line.quantity}
+                      type="number"
+                      min="1"
+                      value={line.quantity}
                       onChange={e => updateLine(index, 'quantity', e.target.value)}
-                      className="w-16 px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-sm"
+                      className="w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-center text-sm"
+                      aria-label={t('qty')}
+                      title={t('qty')}
+                      placeholder={t('qty')}
                     />
-                     <input
-                       type="number" min="0" step="0.01" value={line.unitPrice}
-                       onChange={e => updateLine(index, 'unitPrice', e.target.value)}
-                       className="w-24 px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-sm"
-                       placeholder="0.00"
-                     />
-                     <select
-                       value={line.taxRateId || ''}
-                       onChange={e => updateLine(index, 'taxRateId', e.target.value)}
-                       className="w-28 px-1 py-1 rounded bg-zinc-900 border border-zinc-700 text-xs"
-                       title="Tax rate"
-                     >
-                       <option value="">{t('noTax')}</option>
-                       {taxRates.map(tr => (
-                         <option key={tr.id} value={tr.id}>
-                           {tr.name} ({(tr.rate * 100).toFixed(0)}%)
-                         </option>
-                       ))}
-                     </select>
-                     {newLines.length > 1 && (
-                       <button type="button" onClick={() => removeLine(index)} className="px-2 text-rose-400 hover:text-rose-300">×</button>
-                     )}
-                   </div>
-                 ))}
-                </div>
-               </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={line.unitPrice}
+                      onChange={e => updateLine(index, 'unitPrice', e.target.value)}
+                      className="w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-right text-sm"
+                      placeholder={t('price')}
+                      aria-label={t('price')}
+                      title={t('price')}
+                    />
+                    <select
+                      value={line.taxRateId || ''}
+                      onChange={e => updateLine(index, 'taxRateId', e.target.value)}
+                      className="w-full rounded border border-zinc-700 bg-zinc-900 px-1 py-1 text-xs"
+                      title={t('taxRate')}
+                      aria-label={t('taxRate')}
+                    >
+                      <option value="">{t('noTax')}</option>
+                      {taxRates.map(tr => (
+                        <option key={tr.id} value={tr.id}>
+                          {tr.name} ({(tr.rate * 100).toFixed(0)}%)
+                        </option>
+                      ))}
+                    </select>
+                    {newLines.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => removeLine(index)}
+                        className="justify-self-end px-1 text-rose-400 hover:text-rose-300"
+                        aria-label={t('delete')}
+                      >
+                        ×
+                      </button>
+                    ) : (
+                      <span className="w-4" aria-hidden />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
  
                 {/* Invoice language — per document; defaults from contact → company */}
                <div className="w-[40%]">
@@ -981,25 +1027,43 @@ export default function InvoicingPanel() {
                  </p>
                </div>
 
-              {snippets.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs text-zinc-400">{t('savedSnippets')}</label>
-                      <button type="button" onClick={saveAsSnippet} className="text-[10px] text-emerald-400 hover:text-emerald-300">{t('saveLineSnippet')}</button>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {snippets.map(s => (
-                        <button key={s.id} type="button" onClick={() => applySnippet(s)} className="px-2 py-1 rounded bg-zinc-800 text-xs text-zinc-300 hover:bg-zinc-700" title={(s.description || s.text || '')}>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-xs text-zinc-400">{t('savedSnippets')}</label>
+                  <button type="button" onClick={saveAsSnippet} className="text-[10px] text-emerald-400 hover:text-emerald-300">{t('saveLineSnippet')}</button>
+                </div>
+                {snippets.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {snippets.map(s => (
+                      <span key={s.id} className="inline-flex items-center overflow-hidden rounded bg-zinc-800 text-xs text-zinc-300">
+                        <button
+                          type="button"
+                          onClick={() => applySnippet(s)}
+                          className="px-2 py-1 hover:bg-zinc-700"
+                          title={(s.description || s.text || '')}
+                        >
                           {s.name}
                         </button>
-                      ))}
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => void deleteSnippet(s, 'line')}
+                          className="border-l border-zinc-700 px-1.5 py-1 text-zinc-500 hover:bg-rose-950 hover:text-rose-400"
+                          title={t('deleteSnippet')}
+                          aria-label={t('deleteSnippet')}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
                   </div>
+                ) : (
+                  <div className="text-[10px] text-zinc-500">{t('noLineSnippets')}</div>
                 )}
+              </div>
 
                {/* Invoice-level free text field + its own text snippets (parallel to line snippets) */}
                <div>
-                 <div className="flex items-center justify-between mb-1">
+                 <div className="mb-1 flex items-center justify-between">
                    <label className="text-xs text-zinc-400">{t('notesOnInvoice')}</label>
                    <button type="button" onClick={saveCurrentTextAsSnippet} className="text-[10px] text-emerald-400 hover:text-emerald-300">{t('saveTextSnippet')}</button>
                  </div>
@@ -1007,21 +1071,37 @@ export default function InvoicingPanel() {
                    value={notes}
                    onChange={e => setNotes(e.target.value)}
                    rows={3}
-                   className="w-full px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-sm"
+                   className="w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm"
                    placeholder={t('thankYouDefault')}
                  />
                  <div className="mt-2">
-                   <div className="text-[10px] text-zinc-400 mb-1">{t('textSnippets')}</div>
+                   <div className="mb-1 text-[10px] text-zinc-400">{t('textSnippets')}</div>
                    {textSnippets.length > 0 ? (
                      <div className="flex flex-wrap gap-1">
                        {textSnippets.map(ts => (
-                         <button key={ts.id} type="button" onClick={() => applyTextSnippet(ts)} className="px-2 py-0.5 rounded bg-zinc-800 text-xs text-zinc-300 hover:bg-zinc-700" title={(ts.text || ts.description || '')}>
-                           {ts.name}
-                         </button>
+                         <span key={ts.id} className="inline-flex items-center overflow-hidden rounded bg-zinc-800 text-xs text-zinc-300">
+                           <button
+                             type="button"
+                             onClick={() => applyTextSnippet(ts)}
+                             className="px-2 py-0.5 hover:bg-zinc-700"
+                             title={(ts.text || ts.description || '')}
+                           >
+                             {ts.name}
+                           </button>
+                           <button
+                             type="button"
+                             onClick={() => void deleteSnippet(ts, 'text')}
+                             className="border-l border-zinc-700 px-1.5 py-0.5 text-zinc-500 hover:bg-rose-950 hover:text-rose-400"
+                             title={t('deleteSnippet')}
+                             aria-label={t('deleteSnippet')}
+                           >
+                             ×
+                           </button>
+                         </span>
                        ))}
                      </div>
                    ) : (
-                      <div className="text-[10px] text-zinc-500">No text snippets yet. Write in the Notes box above and click &quot;Save current text as snippet&quot;.</div>
+                     <div className="text-[10px] text-zinc-500">{t('noTextSnippets')}</div>
                    )}
                  </div>
                 </div>
