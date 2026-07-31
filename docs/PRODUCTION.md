@@ -2,13 +2,22 @@
 
 Standalone contacts + invoicing. Not an accounting system.
 
+## Prerequisites (do these first)
+
+| Item | Why |
+|------|-----|
+| VPS **≥ 2 GB RAM** (more if sharing the host with other stacks) | Build + app + worker + Postgres |
+| SSH key **on the server** (`authorized_keys`) | Cloud “SSH keys” lists do not always inject into existing VMs |
+| Domain **A record** → server IP **before** relying on HTTPS | Caddy/Let’s Encrypt need public DNS |
+| Full **SMTP** and/or **OAuth** | Production will not start without a real sign-in method |
+
 ## 1. Secrets (generate fresh per install)
 
 ```bash
 openssl rand -base64 48   # AUTH_SECRET
 openssl rand -hex 32      # ENCRYPTION_KEY
 openssl rand -base64 48   # JOB_RUNNER_SECRET
-openssl rand -base64 48   # UPDATER_TOKEN (if using compose updater)
+openssl rand -base64 48   # UPDATER_TOKEN (only if UPDATER_URL / updater sidecar is used)
 openssl rand -base64 24   # POSTGRES_PASSWORD
 ```
 
@@ -18,14 +27,16 @@ Copy `.env.example` → `.env` and fill all required values.
 
 | Variable | Notes |
 |----------|--------|
-| `DATABASE_URL` | PostgreSQL |
+| `DATABASE_URL` | PostgreSQL (compose sets from `POSTGRES_PASSWORD`) |
+| `POSTGRES_PASSWORD` | Required by compose |
 | `AUTH_SECRET` | ≥ 32 chars |
 | `ENCRYPTION_KEY` | 64 hex chars |
 | `JOB_RUNNER_SECRET` | ≥ 32 chars |
-| `AUTH_URL` | `https://your.domain` |
+| `AUTH_URL` | `https://your.domain` (no trailing slash) |
 | `AUTH_TRUST_HOST` | `true` behind reverse proxy |
-| `SMTP_*` | Magic link + invoice email |
-| `UPDATER_TOKEN` | Required by Docker entrypoint for `server` |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Magic link + invoice email (or OAuth instead) |
+| `SMTP_FROM` | Recommended |
+| `UPDATER_TOKEN` | Only when `UPDATER_URL` is set |
 
 At least one sign-in method: full SMTP and/or Google and/or Microsoft OAuth.
 
@@ -33,14 +44,23 @@ At least one sign-in method: full SMTP and/or Google and/or Microsoft OAuth.
 
 ```bash
 cp .env.example .env
-# edit .env
+# edit .env — secrets, AUTH_URL, SMTP or OAuth, POSTGRES_PASSWORD
 
 docker compose up -d --build
+# entrypoint: prisma migrate deploy, then next start (+ worker service for mail jobs)
+
 curl -sS https://your.domain/api/health | jq .
 # expect: "ready": true, "status": "ok"
 ```
 
 Open the site → bootstrap first **ADMIN** → company settings → tax rates → first contact → first invoice.
+
+### Image packaging notes
+
+- Build-time `AUTH_SECRET` placeholder is set in the Dockerfile; runtime `.env` must supply a real secret.
+- Image includes `prisma.config.ts` (Prisma 7). Missing it → migrate error: “datasource.url property is required”.
+- Entrypoint writes `DATABASE_URL` into a container `.env` before migrate and creates `.data` / `uploads` / `logs` / `backups`.
+- Auth.js Email provider needs SMTP `server: { host, port, auth }` (shipped in app code).
 
 ## 4. Smoke test (must pass before handing to user)
 
@@ -52,12 +72,18 @@ Open the site → bootstrap first **ADMIN** → company settings → tax rates �
 6. **Chat** (optional) one message if LLM keys set
 7. **Sign out / invite** second user as VIEWER if needed
 
-## 5. Reverse proxy
+## 5. Reverse proxy + TLS
 
-- Terminate TLS (HTTPS)
-- Forward to `127.0.0.1:3000`
+- Terminate TLS (HTTPS) with Caddy/nginx/Traefik
+- Forward to `127.0.0.1:3000` (or the published app port)
 - Set `AUTH_URL=https://your.domain` and `AUTH_TRUST_HOST=true`
 - Do not expose Postgres publicly
+- DNS **A** record must resolve to the VPS **before** ACME succeeds. If certs were attempted while DNS was missing, restart the proxy after DNS works (`systemctl restart caddy`)
+- Browser `SSL_ERROR_INTERNAL_ERROR_ALERT` usually means no valid cert yet (DNS/ACME), not an app bug
+
+### Multi-instance on one VPS
+
+Separate compose projects, volumes, `.env`, and host ports; one reverse proxy by hostname. ~1–1.5 GB RAM per stack is a practical budget.
 
 ## 6. Backups
 

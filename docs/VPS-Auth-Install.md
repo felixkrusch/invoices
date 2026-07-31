@@ -88,5 +88,13 @@ Register exactly:
 - You only tested local instant email.
 - OAuth apps still point at `localhost`.
 - SMTP works for invoices but magic links 500 (check logs / `SMTP_FROM` / AUTH_URL).
+- HTTPS fails while DNS still points elsewhere or ACME never completed (fix DNS, restart reverse proxy).
+
+## Docker / packaging reminders
+
+- Production needs SMTP or OAuth in `.env` **before** a successful production boot.
+- Migrations run in `docker-entrypoint.sh`; image must include `prisma.config.ts` and runtime `DATABASE_URL`.
+- Compose **`worker`** is required for queued invoice email in production.
+- See [PRODUCTION.md](./PRODUCTION.md).
 
 When the smoke table is green on the VPS, auth is ready for real users on that install.

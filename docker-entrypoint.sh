@@ -22,7 +22,17 @@ if [ "${1:-server}" != "worker" ] && [ -n "${UPDATER_URL:-}" ] && { [ -z "$UPDAT
   exit 1
 fi
 
+if [ -z "$DATABASE_URL" ]; then
+  echo "invoices: DATABASE_URL is required" >&2
+  exit 1
+fi
+
 mkdir -p .data/files .data/backups uploads logs backups
+
+# Prisma 7 loads datasource URL via prisma.config.ts + dotenv; ensure .env exists for migrate
+umask 077
+printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > .env
+
 echo "invoices: running database migrations..."
 npx prisma migrate deploy
 
