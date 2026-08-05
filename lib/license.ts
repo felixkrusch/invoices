@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma'
 /** Same master unlock key as entrytwo (dev / support bypass). */
 export const MASTER_LICENSE_KEY = 'FCKGW-RHQQ2-YXRKT-8TG6W-2B7Q8'
 
+/** This app only accepts keys issued for this product (or master). */
+export const LICENSE_PRODUCT = 'invoices' as const
+
 export const TRIAL_DAYS = 30
 
 export interface LicenseStatus {
@@ -30,6 +33,7 @@ export async function verifyLicenseKey(key: string): Promise<boolean> {
 
   // "Verify once, trust forever" — only called from /api/license/activate.
   // Runtime uses stored license.acceptedKey only.
+  // Sends product=invoices so entrytwo keys are rejected.
   const verifyUrl = process.env.LICENSE_VERIFY_URL
   if (verifyUrl) {
     try {
@@ -38,13 +42,19 @@ export async function verifyLicenseKey(key: string): Promise<boolean> {
       const res = await fetch(verifyUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key }),
+        body: JSON.stringify({ key, product: LICENSE_PRODUCT }),
         signal: controller.signal,
       })
       clearTimeout(timeout)
       if (res.ok) {
-        const data = await res.json().catch(() => ({}))
-        return !!data.valid
+        const data = await res.json().catch(() => ({})) as {
+          valid?: boolean
+          product?: string
+          master?: boolean
+        }
+        if (!data.valid) return false
+        if (data.master) return true
+        return data.product === LICENSE_PRODUCT
       }
     } catch {
       // network error → only master key works
