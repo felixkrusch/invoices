@@ -31,7 +31,9 @@ See [PRODUCTION.md](./PRODUCTION.md) and [VPS-Auth-Install.md](./VPS-Auth-Instal
 
 See `.env.example`.
 
-Licensing: **30-day trial** from first use, then activate a key (master key or `LICENSE_VERIFY_URL`). Same model as entrytwo.
+Licensing: **30-day trial** from first use (no key). Then a human buys at https://entrytwo.com/buy?product=invoices and an admin activates with `POST /api/license/activate`. Set `LICENSE_VERIFY_URL=https://entrytwo.com/api/license/verify` in `.env` or paid keys fail. Same model as entrytwo; keys are product-bound.
+
+Handler: one compose project per legal entity (`COMPOSE_PROJECT_NAME`, unique `APP_PORT`). Agent skill: https://entrytwo.com/skills/invoices/SKILL.md
 
 ## Worker
 
